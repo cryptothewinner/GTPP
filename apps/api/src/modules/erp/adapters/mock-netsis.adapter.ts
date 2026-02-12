@@ -97,11 +97,14 @@ export class MockNetsisAdapter implements IErpAdapter {
     async createOrder(orderData: NetsisOrderPayload): Promise<NetsisOrderResult> {
         await this.simulateLatency(200, 800);
 
+        const orderType = (orderData.orderType ?? 'unknown').toString();
+        const lines = Array.isArray(orderData.lines) ? orderData.lines : [];
+
         this.orderCounter++;
-        const docNo = `NET-${orderData.orderType.toUpperCase().slice(0, 3)}-${this.orderCounter}`;
+        const docNo = `NET-${orderType.toUpperCase().slice(0, 3)}-${this.orderCounter}`;
 
         this.logger.debug(
-            `[MOCK] createOrder: ${orderData.orderType} | ${orderData.lines.length} lines → ${docNo}`,
+            `[MOCK] createOrder: ${orderType} | ${lines.length} lines → ${docNo}`,
         );
 
         // Simulate 5% failure rate for realistic testing

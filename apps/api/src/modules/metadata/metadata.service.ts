@@ -21,15 +21,15 @@ export class MetadataService {
         }
 
         // Extract unique groups from fields
-        const groupKeys = Array.from(new Set(entity.fields.map(f => f.group).filter(Boolean))) as string[];
+        const groupKeys = Array.from(new Set(entity.fields.map((f: any) => f.group).filter(Boolean))) as string[];
         const groups: SharedFieldGroup[] = groupKeys.map(key => ({
             key,
             label: key.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' '),
-            order: entity.fields.find(f => f.group === key)?.order || 0,
+            order: entity.fields.find((f: any) => f.group === key)?.order || 0,
             collapsible: true, // Defaulting to collapsible for a premium feel
         }));
 
-        const fields: SharedFieldMetadata[] = entity.fields.map((f) => ({
+        const fields: SharedFieldMetadata[] = entity.fields.map((f: any) => ({
             key: f.name,
             label: f.label,
             type: f.fieldType as SharedFieldMetadata['type'],
@@ -70,7 +70,7 @@ export class MetadataService {
             orderBy: { displayName: 'asc' },
         });
 
-        return schemas.map((s) => ({
+        return schemas.map((s: { slug: string; displayName: string }) => ({
             slug: s.slug,
             displayName: s.displayName,
         }));

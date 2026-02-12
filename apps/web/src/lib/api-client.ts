@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 
 interface RequestOptions extends Omit<RequestInit, 'body'> {
     body?: unknown;
@@ -48,7 +48,7 @@ class ApiClient {
     }
 
     async login(email: string, password: string) {
-        const response = await this.post<any>('/api/v1/auth/login', { email, password });
+        const response = await this.post<any>('/auth/login', { email, password });
         if (response.success && response.data?.token) {
             localStorage.setItem('auth_token', response.data.token);
         }

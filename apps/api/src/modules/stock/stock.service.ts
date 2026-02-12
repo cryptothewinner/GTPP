@@ -1,6 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { Prisma } from '@prisma/client';
 
 interface FindAllParams {
     page: number;
@@ -20,7 +19,7 @@ export class StockService {
         const skip = (page - 1) * pageSize;
 
         // Build where clause
-        const where: Prisma.StockWhereInput = {};
+        const where: Record<string, any> = {};
 
         // Global search
         if (search) {
@@ -72,7 +71,7 @@ export class StockService {
         }
 
         // Build orderBy
-        const orderBy: Prisma.StockOrderByWithRelationInput = {};
+        const orderBy: Record<string, 'asc' | 'desc'> = {};
         if (sortField) {
             orderBy[sortField as any] = sortOrder || 'asc';
         } else {
@@ -98,88 +97,6 @@ export class StockService {
                 pageSize,
                 totalPages: Math.ceil(total / pageSize),
             },
-        };
-    }
-
-    async findForGrid(params: {
-        startRow: number;
-        endRow: number;
-        sortModel?: { colId: string; sort: 'asc' | 'desc' }[];
-        filterModel?: Record<string, any>;
-        searchText?: string;
-    }) {
-        const { startRow, endRow, sortModel, filterModel, searchText } = params;
-        const take = endRow - startRow;
-
-        const where: Prisma.StockWhereInput = {};
-
-        if (searchText) {
-            where.OR = [
-                { stockCode: { contains: searchText, mode: 'insensitive' } },
-                { stockName: { contains: searchText, mode: 'insensitive' } },
-                { barcode: { contains: searchText, mode: 'insensitive' } },
-                { brand: { contains: searchText, mode: 'insensitive' } },
-            ];
-        }
-
-        if (filterModel) {
-            for (const [key, filter] of Object.entries(filterModel)) {
-                if (!filter) continue;
-
-                if (filter.filterType === 'text') {
-                    switch (filter.type) {
-                        case 'contains':
-                            where[key] = { contains: filter.filter, mode: 'insensitive' };
-                            break;
-                        case 'equals':
-                            where[key] = filter.filter;
-                            break;
-                        case 'startsWith':
-                            where[key] = { startsWith: filter.filter, mode: 'insensitive' };
-                            break;
-                        case 'endsWith':
-                            where[key] = { endsWith: filter.filter, mode: 'insensitive' };
-                            break;
-                    }
-                } else if (filter.filterType === 'number') {
-                    switch (filter.type) {
-                        case 'equals':
-                            where[key] = filter.filter;
-                            break;
-                        case 'greaterThan':
-                            where[key] = { gt: filter.filter };
-                            break;
-                        case 'lessThan':
-                            where[key] = { lt: filter.filter };
-                            break;
-                        case 'inRange':
-                            where[key] = { gte: filter.filter, lte: filter.filterTo };
-                            break;
-                    }
-                }
-            }
-        }
-
-        const orderBy: Prisma.StockOrderByWithRelationInput = {};
-        if (sortModel && sortModel.length > 0) {
-            orderBy[sortModel[0].colId as any] = sortModel[0].sort;
-        } else {
-            orderBy.stockCode = 'asc';
-        }
-
-        const [rows, total] = await Promise.all([
-            this.prisma.stock.findMany({
-                where,
-                orderBy: orderBy as any,
-                skip: startRow,
-                take,
-            }),
-            this.prisma.stock.count({ where }),
-        ]);
-
-        return {
-            rows,
-            lastRow: total,
         };
     }
 
@@ -212,7 +129,7 @@ export class StockService {
             })
         ]);
 
-        const totalValue = totalValueResults.reduce((acc, curr) => acc + (Number(curr.currentStock) * Number(curr.salePrice)), 0);
+        const totalValue = totalValueResults.reduce((acc: number, curr: { currentStock: any; salePrice: any }) => acc + (Number(curr.currentStock) * Number(curr.salePrice)), 0);
 
         return {
             totalProducts,

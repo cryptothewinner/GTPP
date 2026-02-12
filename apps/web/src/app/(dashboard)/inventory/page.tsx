@@ -10,7 +10,7 @@ export default function InventoryPage() {
     // Stats Query carried over from previous implementation
     const { data: summaryResult } = useQuery({
         queryKey: ['stock-summary'],
-        queryFn: () => apiClient.get<any>('/api/v1/stocks/summary'),
+        queryFn: () => apiClient.get<any>('/stocks/summary'),
     });
 
     const summary = summaryResult?.data;

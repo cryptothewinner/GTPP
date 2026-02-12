@@ -34,11 +34,6 @@ Thumbs.db
 
 # Prisma
 /apps/api/prisma/migrations/
-/apps/api/prisma/*.js
-/apps/api/prisma/*.js.map
-
-# TypeScript build info
-*.tsbuildinfo
 
 # .NET
 bin/

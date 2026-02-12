@@ -40,7 +40,7 @@ export function useStockList(params: StockListParams) {
     return useQuery({
         queryKey: ['stocks', 'list', params],
         queryFn: () =>
-            apiClient.get<StockListResponse>(`/api/v1/stocks?${searchParams.toString()}`),
+            apiClient.get<StockListResponse>(`/stocks?${searchParams.toString()}`),
         staleTime: 30 * 1000,
     });
 }
@@ -48,7 +48,7 @@ export function useStockList(params: StockListParams) {
 export function useStockDetail(id: string | null) {
     return useQuery({
         queryKey: ['stocks', 'detail', id],
-        queryFn: () => apiClient.get<StockDetailResponse>(`/api/v1/stocks/${id}`),
+        queryFn: () => apiClient.get<StockDetailResponse>(`/stocks/${id}`),
         enabled: !!id,
     });
 }
@@ -58,7 +58,7 @@ export function useUpdateStock() {
 
     return useMutation({
         mutationFn: ({ id, data }: { id: string; data: Record<string, any> }) =>
-            apiClient.patch<StockDetailResponse>(`/api/v1/stocks/${id}`, data),
+            apiClient.patch<StockDetailResponse>(`/stocks/${id}`, data),
         onSuccess: (_, variables) => {
             // Invalidate both the detail and list queries
             queryClient.invalidateQueries({ queryKey: ['stocks', 'detail', variables.id] });

@@ -65,22 +65,31 @@ export class ErpService {
      * 4. Returns the Netsis document reference
      */
     async createOrder(orderData: NetsisOrderPayload): Promise<NetsisOrderResult> {
+        const orderType = (orderData.orderType ?? 'unknown').toString();
+        const lines = Array.isArray(orderData.lines) ? orderData.lines : [];
+
         this.logger.log(
-            `Creating ${orderData.orderType} order with ${orderData.lines.length} lines`,
+            `Creating ${orderType} order with ${lines.length} lines`,
         );
 
         // ── Business validation ──
-        if (!orderData.lines || orderData.lines.length === 0) {
+        if (lines.length === 0) {
             throw new Error('Order must contain at least one line');
         }
 
-        const result = await this.erpAdapter.createOrder(orderData);
+        const safeOrderData: NetsisOrderPayload = {
+            ...orderData,
+            orderType,
+            lines,
+        };
+
+        const result = await this.erpAdapter.createOrder(safeOrderData);
 
         if (result.success) {
             await this.eventBus.emit('erp.order.created', {
                 netsisDocumentNo: result.netsisDocumentNo,
-                orderType: orderData.orderType,
-                lineCount: orderData.lines.length,
+                orderType,
+                lineCount: lines.length,
             });
 
             this.logger.log(
@@ -88,7 +97,7 @@ export class ErpService {
             );
         } else {
             await this.eventBus.emit('erp.order.failed', {
-                orderType: orderData.orderType,
+                orderType,
                 errors: result.errors,
             });
 

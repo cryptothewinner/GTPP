@@ -1,6 +1,6 @@
 {
+    "extends": "../../tsconfig.base.json",
     "compilerOptions": {
-        "target": "ESNext",
         "lib": [
             "dom",
             "dom.iterable",
@@ -22,13 +22,9 @@
                 "name": "next"
             }
         ],
-        "baseUrl": ".",
         "paths": {
             "@/*": [
                 "./src/*"
-            ],
-            "@sepenatural/shared": [
-                "../../packages/shared/src/index.ts"
             ]
         }
     },

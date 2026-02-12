@@ -29,7 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const checkAuth = async () => {
             if (apiClient.isAuthenticated()) {
                 try {
-                    const profile = await apiClient.get<any>('/api/v1/auth/me');
+                    const profile = await apiClient.get<any>('/auth/me');
                     setUser(profile.data);
                 } catch {
                     apiClient.logout();

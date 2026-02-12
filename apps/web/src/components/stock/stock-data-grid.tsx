@@ -106,7 +106,7 @@ export function StockDataGrid() {
                 try {
                     const { startRow, endRow, sortModel, filterModel } = params.request;
 
-                    const response = await apiClient.post<any>('/api/v1/stocks/grid', {
+                    const response = await apiClient.post<any>('/stocks/grid', {
                         startRow: startRow ?? 0,
                         endRow: endRow ?? 100,
                         sortModel: sortModel?.map(s => ({ colId: s.colId, sort: s.sort as 'asc' | 'desc' })) ?? [],

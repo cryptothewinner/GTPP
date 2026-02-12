@@ -1,10 +1,7 @@
-import { Controller, Get, Post, Patch, Param, Body, Query, ParseIntPipe, DefaultValuePipe } from '@nestjs/common';
+import { Controller, Get, Patch, Param, Body, Query, ParseIntPipe, DefaultValuePipe } from '@nestjs/common';
 import { StockService } from './stock.service';
 import { UpdateStockDto } from './dto/update-stock.dto';
-import { GridRequestDto } from './dto/grid-request.dto';
-import { Public } from '../../auth/jwt-auth.guard';
 
-@Public()
 @Controller('stocks')
 export class StockController {
     constructor(private readonly stockService: StockService) { }
@@ -25,11 +22,6 @@ export class StockController {
             sortOrder, search,
             filters: filters ? JSON.parse(filters) : undefined,
         });
-    }
-
-    @Post('grid')
-    async getGrid(@Body() body: GridRequestDto) {
-        return this.stockService.findForGrid(body);
     }
 
     @Get('summary')

@@ -6,7 +6,7 @@ export function useEntitySchema(entitySlug: string | null) {
     return useQuery({
         queryKey: ['metadata', 'entity-schema', entitySlug],
         queryFn: () =>
-            apiClient.get<EntityFormSchemaResponse>(`/api/v1/metadata/${entitySlug}`),
+            apiClient.get<EntityFormSchemaResponse>(`/metadata/${entitySlug}`),
         enabled: !!entitySlug,
         staleTime: 5 * 60 * 1000, // Cache for 5 minutes — metadata rarely changes
         gcTime: 30 * 60 * 1000,
