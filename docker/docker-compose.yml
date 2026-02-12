@@ -29,6 +29,47 @@ services:
     volumes:
       - sepe_redis_data:/data
 
+  api:
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
+    container_name: sepe_api
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    environment:
+      - DATABASE_URL=postgresql://sepe_admin:sepe_2026_secret@postgres:5432/sepe_natural?schema=public
+      - NETSIS_BRIDGE_URL=http://netsis-bridge:5295
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  web:
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+    container_name: sepe_web
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:4000/api/v1
+    depends_on:
+      - api
+
+  netsis-bridge:
+    image: mcr.microsoft.com/dotnet/sdk:8.0-alpine
+    container_name: sepe_netsis_bridge
+    restart: unless-stopped
+    ports:
+      - "5295:5295"
+    volumes:
+      - ../apps/integration/src/SepeNatural.NetsisBridge:/app
+    working_dir: /app
+    command: dotnet watch run --urls http://0.0.0.0:5295
+
 volumes:
   sepe_pgdata:
   sepe_redis_data:

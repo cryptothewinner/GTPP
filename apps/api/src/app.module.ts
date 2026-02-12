@@ -6,6 +6,7 @@ import { MetadataModule } from './modules/metadata/metadata.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { ErpModule } from './modules/erp/erp.module';
 import { EventBusModule } from './events/event-bus.module';
+import { NetsisBridgeModule } from './modules/netsis/netsis-bridge.module';
 
 @Module({
     imports: [
@@ -28,6 +29,7 @@ import { EventBusModule } from './events/event-bus.module';
         MetadataModule,
         AuditModule,
         ErpModule,
+        NetsisBridgeModule,
     ],
 })
 export class AppModule { }

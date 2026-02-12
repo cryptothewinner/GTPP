@@ -50,4 +50,6 @@ if (app.Environment.IsDevelopment())
 app.UseCors("AllowApi");
 app.MapControllers();
 
+app.MapGet("/health", () => new { status = "ok", system = "NetsisBridge", timestamp = DateTime.UtcNow });
+
 app.Run();
