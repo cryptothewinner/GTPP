@@ -1,0 +1,1 @@
+{"root":["./src/index.ts","./src/enums/entity-status.enum.ts","./src/enums/field-type.enum.ts","./src/enums/user-role.enum.ts","./src/types/api-response.types.ts","./src/types/auth.types.ts","./src/types/erp.types.ts","./src/types/metadata.types.ts","./src/utils/schema-to-ajv.util.ts"],"version":"5.9.3"}

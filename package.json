@@ -1,0 +1,22 @@
+{
+    "name": "sepe-natural-2026",
+    "version": "0.1.0",
+    "private": true,
+    "packageManager": "pnpm@9.15.0",
+    "scripts": {
+        "dev": "turbo dev",
+        "build": "turbo build",
+        "lint": "turbo lint",
+        "db:generate": "pnpm --filter @sepe/api prisma generate",
+        "db:migrate": "pnpm --filter @sepe/api prisma migrate dev",
+        "db:seed": "pnpm --filter @sepe/api prisma db seed",
+        "db:studio": "pnpm --filter @sepe/api prisma studio",
+        "clean": "turbo clean && rm -rf node_modules"
+    },
+    "devDependencies": {
+        "turbo": "^2.3.0",
+        "typescript": "^5.7.0",
+        "prettier": "^3.4.0",
+        "eslint": "^9.0.0"
+    }
+}

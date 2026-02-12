@@ -1,0 +1,95 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model EntityDefinition {
+  id          String   @id @default(uuid())
+  slug        String   @unique
+  name        String
+  description String?
+  icon        String?
+  fields      Json     // FieldDefinition[]
+  fieldGroups Json     @default("[]")
+  isActive    Boolean  @default(true)
+  version     Int      @default(1)
+  records     EntityRecord[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("entity_definitions")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  fullName     String   @map("full_name")
+  role         UserRole @default(VIEWER)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("users")
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  OPERATOR
+  VIEWER
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id")
+  action     String   // CREATE, UPDATE, DELETE
+  userId     String?  @map("user_id")
+  oldData    Json?    @map("old_data")
+  newData    Json?    @map("new_data")
+  changes    Json?
+  metadata   Json?
+  durationMs Int?     @map("duration_ms")
+  ipAddress  String?  @map("ip_address")
+  endpoint   String?
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@map("audit_logs")
+}
+
+model EntityRecord {
+  id                 String           @id @default(uuid())
+  entityDefinitionId String           @map("entity_definition_id")
+  definition         EntityDefinition @relation(fields: [entityDefinitionId], references: [id])
+  data               Json
+  status             String           @default("active")
+  createdBy          String?          @map("created_by")
+  updatedBy          String?          @map("updated_by")
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  @@index([entityDefinitionId])
+  @@map("entity_records")
+}
+
+model EventOutbox {
+  id            String    @id @default(uuid())
+  aggregateType String    @map("aggregate_type")
+  aggregateId   String    @map("aggregate_id")
+  eventType     String    @map("event_type")
+  payload       Json
+  status        String    @default("pending") // pending, processed, failed
+  error         String?
+  processedAt   DateTime? @map("processed_at")
+  createdAt     DateTime  @default(now())
+
+  @@index([status])
+  @@map("event_outbox")
+}
