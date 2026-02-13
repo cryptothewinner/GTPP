@@ -2,14 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AgGridReact } from 'ag-grid-react';
+import { themeQuartz } from 'ag-grid-community';
 import type {
     ColDef,
     GridReadyEvent,
-    IServerSideDatasource,
-    IServerSideGetRowsParams,
     GridApi,
     GetRowIdParams,
-} from 'ag-grid-enterprise';
+} from 'ag-grid-community';
 import { apiClient } from '@/lib/api-client';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -151,7 +150,7 @@ export default function RawMaterialsPage() {
             },
             {
                 field: 'type',
-                headerName: 'TİP',
+                headerName: 'MALZEME TÜRÜ',
                 width: 130,
                 filter: 'agTextColumnFilter',
                 headerClass:
@@ -264,69 +263,46 @@ export default function RawMaterialsPage() {
         [],
     );
 
-    /* ---------- server-side datasource ---------- */
-    const createDatasource = useCallback((): IServerSideDatasource => {
-        return {
-            getRows: async (params: IServerSideGetRowsParams) => {
-                console.log('MaterialsGrid: getRows called', params.request);
-                try {
-                    const { startRow, sortModel, filterModel } = params.request;
-                    const page = Math.floor((startRow || 0) / 50) + 1;
+    /* ---------- client-side data fetch ---------- */
+    const [rowData, setRowData] = useState<MaterialRow[]>([]);
+    const [isLoadingGrid, setIsLoadingGrid] = useState(true);
 
-                    const sp = new URLSearchParams();
-                    sp.set('page', String(page));
-                    sp.set('pageSize', '50');
-                    if (searchTerm) sp.set('search', searchTerm);
-                    if (sortModel && sortModel.length > 0) {
-                        sp.set('sortField', sortModel[0].colId);
-                        sp.set('sortOrder', sortModel[0].sort as string);
-                    }
-                    if (filterModel && Object.keys(filterModel).length > 0) {
-                        sp.set('filters', JSON.stringify(filterModel));
-                    }
+    const fetchMaterials = useCallback(async () => {
+        try {
+            setIsLoadingGrid(true);
+            const sp = new URLSearchParams();
+            sp.set('page', '1');
+            sp.set('pageSize', '500');
+            if (searchTerm) sp.set('search', searchTerm);
 
-                    console.log('MaterialsGrid: fetching from', `/materials?${sp.toString()}`);
-                    const response = await apiClient.get<any>(
-                        `/materials?${sp.toString()}`,
-                    );
+            const response = await apiClient.get<any>(`/materials?${sp.toString()}`);
+            console.log('MaterialsGrid: data received', response.data?.length, 'rows');
 
-                    console.log('MaterialsGrid: data received', response.data?.length, 'rows');
+            const materials = (response.data ?? []).map((row: any) => ({
+                ...row,
+                currentStock: Number(row.currentStock) || 0,
+                minStockLevel: Number(row.minStockLevel) || 0,
+                unitPrice: Number(row.unitPrice) || 0,
+            }));
 
-                    params.success({
-                        rowData: response.data,
-                        rowCount: response.meta?.total ?? response.data?.length ?? 0,
-                    });
-                } catch (error) {
-                    console.error('MaterialsGrid error:', error);
-                    params.fail();
-                }
-            },
-        };
+            setRowData(materials);
+        } catch (error) {
+            console.error('MaterialsGrid error:', error);
+        } finally {
+            setIsLoadingGrid(false);
+        }
     }, [searchTerm]);
+
+    useEffect(() => {
+        fetchMaterials();
+    }, [fetchMaterials]);
 
     const onGridReady = useCallback(
         (event: GridReadyEvent) => {
-            console.debug('MaterialsGrid: onGridReady called', {
-                rowCount: event.api.getDisplayedRowCount(),
-            });
             setGridApi(event.api);
-            event.api.setGridOption(
-                'serverSideDatasource',
-                createDatasource(),
-            );
         },
-        [createDatasource],
+        [],
     );
-
-    /* refresh datasource when search changes */
-    useEffect(() => {
-        if (gridApi) {
-            gridApi.setGridOption(
-                'serverSideDatasource',
-                createDatasource(),
-            );
-        }
-    }, [searchTerm, gridApi, createDatasource]);
 
     const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setSearchTerm(e.target.value);
@@ -341,13 +317,8 @@ export default function RawMaterialsPage() {
 
     const handleRefresh = useCallback(() => {
         refetchSummary();
-        if (gridApi) {
-            gridApi.setGridOption(
-                'serverSideDatasource',
-                createDatasource(),
-            );
-        }
-    }, [refetchSummary, gridApi, createDatasource]);
+        fetchMaterials();
+    }, [refetchSummary, fetchMaterials]);
 
     /* ---------- edit sheet submit ---------- */
     const handleEditSubmit = useCallback(
@@ -360,7 +331,7 @@ export default function RawMaterialsPage() {
                 });
                 toast({
                     title: 'Başarılı',
-                    description: 'Hammadde bilgileri başarıyla güncellendi.',
+                    description: 'Malzeme bilgileri başarıyla güncellendi.',
                 });
                 setSheetOpen(false);
                 handleRefresh();
@@ -395,10 +366,10 @@ export default function RawMaterialsPage() {
                                 Malzemeler
                             </p>
                             <h1 className="text-2xl font-bold text-slate-800 leading-tight">
-                                Hammaddeler
+                                Malzemeler
                             </h1>
                             <p className="text-sm text-slate-500 mt-0.5">
-                                Hammadde envanterini ve tedarikçi bilgilerini
+                                Malzeme envanterini ve tedarikçi bilgilerini
                                 yönetin
                             </p>
                         </div>
@@ -419,7 +390,7 @@ export default function RawMaterialsPage() {
                         </Button>
                         <Button className="bg-[#38b2ac] hover:bg-[#2c9a94] text-white h-[32px] px-4 font-bold rounded shadow-sm">
                             <Plus className="w-4 h-4 mr-1" />
-                            Yeni Hammadde
+                            Yeni Malzeme Ekle
                         </Button>
                     </div>
                 </div>
@@ -468,7 +439,7 @@ export default function RawMaterialsPage() {
                             <div className="relative flex-1 max-w-sm">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
                                 <Input
-                                    placeholder="Hammadde ara..."
+                                    placeholder="Malzeme ara..."
                                     className="pl-9 h-8 border-lightning-border focus:ring-lightning-blue shadow-none rounded-sm bg-white text-sm"
                                     value={searchTerm}
                                     onChange={handleSearchChange}
@@ -493,10 +464,10 @@ export default function RawMaterialsPage() {
                     </div>
 
                     {/* AG Grid */}
-                    <div className="flex-1 overflow-hidden" style={{ height: '500px', width: '100%', backgroundColor: '#f8fafc' }}>
-                        <div className="ag-theme-quartz" style={{ height: '100%', width: '100%' }}>
+                    <div style={{ height: '500px', width: '100%' }}>
+                        <div style={{ height: '100%', width: '100%' }}>
                             <AgGridReact
-                                theme="legacy"
+                                theme={themeQuartz}
                                 ref={gridRef}
                                 getRowId={getRowId}
                                 columnDefs={columnDefs}
@@ -507,10 +478,9 @@ export default function RawMaterialsPage() {
                                     floatingFilter: false,
                                     flex: 0,
                                 }}
+                                rowData={rowData}
                                 rowHeight={42}
                                 headerHeight={32}
-                                rowModelType="serverSide"
-                                cacheBlockSize={50}
                                 onGridReady={onGridReady}
                                 onRowDoubleClicked={onRowDoubleClicked}
                                 animateRows={true}
@@ -540,7 +510,7 @@ export default function RawMaterialsPage() {
                                         {isLoadingDetail
                                             ? 'Yükleniyor...'
                                             : detail?.code ||
-                                            'Hammadde Düzenle'}
+                                            'Malzeme Düzenle'}
                                     </SheetTitle>
                                     {detail && (
                                         <Badge
@@ -564,7 +534,7 @@ export default function RawMaterialsPage() {
                                 <SheetDescription className="text-slate-400 font-medium">
                                     {detail
                                         ? detail.name
-                                        : 'Seçili hammaddenin detaylarını güncelleyin.'}
+                                        : 'Seçili malzemenin detaylarını güncelleyin.'}
                                 </SheetDescription>
                             </SheetHeader>
                         </div>
@@ -576,7 +546,7 @@ export default function RawMaterialsPage() {
                             <div className="flex flex-col items-center justify-center py-24 space-y-4">
                                 <Loader2 className="h-10 w-10 animate-spin text-[#38b2ac]" />
                                 <p className="text-slate-500 font-medium animate-pulse">
-                                    Hammadde verileri getiriliyor...
+                                    Malzeme verileri getiriliyor...
                                 </p>
                             </div>
                         ) : detailError ? (
@@ -600,7 +570,7 @@ export default function RawMaterialsPage() {
                         ) : (
                             <div className="text-center py-24">
                                 <p className="text-slate-400 italic">
-                                    Hammadde bulunamadı veya ID geçersiz.
+                                    Malzeme bulunamadı veya ID geçersiz.
                                 </p>
                             </div>
                         )}
