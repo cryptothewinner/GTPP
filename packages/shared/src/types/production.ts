@@ -4,6 +4,8 @@ export type ProductionOrderStatus = 'DRAFT' | 'PLANNED' | 'IN_PROGRESS' | 'COMPL
 export type BatchStatus = 'PENDING' | 'IN_PRODUCTION' | 'QC_PENDING' | 'QC_PASSED' | 'QC_FAILED' | 'RELEASED' | 'REJECTED';
 export type MaterialType = 'RAW_MATERIAL' | 'PACKAGING' | 'SEMI_FINISHED' | 'FINISHED_PRODUCT';
 
+export type MaterialBatchStatus = 'AVAILABLE' | 'RESERVED' | 'QUARANTINE' | 'EXPIRED' | 'CONSUMED';
+
 export interface SupplierDto {
     id: string;
     code: string;
@@ -41,6 +43,22 @@ export interface MaterialDto {
     storageCondition?: string | null;
     isActive: boolean;
     notes?: string | null;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface MaterialBatchDto {
+    id: string;
+    batchNumber: string;
+    materialId: string;
+    material?: MaterialDto;
+    supplierLotNo?: string | null;
+    manufacturingDate?: string | null;
+    expiryDate?: string | null;
+    quantity: number;
+    remainingQuantity: number;
+    status: MaterialBatchStatus;
+    storageLocation?: string | null;
     createdAt: string;
     updatedAt: string;
 }

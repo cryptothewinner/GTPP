@@ -156,6 +156,14 @@ enum MaterialType {
   FINISHED_PRODUCT
 }
 
+enum MaterialBatchStatus {
+  AVAILABLE
+  RESERVED
+  QUARANTINE
+  EXPIRED
+  CONSUMED
+}
+
 model Supplier {
   id            String   @id @default(cuid())
   code          String   @unique @map("supplier_code")
@@ -201,9 +209,33 @@ model Material {
 
   supplier    Supplier?    @relation(fields: [supplierId], references: [id])
   recipeItems RecipeItem[]
+  batches     MaterialBatch[]
 
   @@index([isActive])
   @@map("materials")
+}
+
+model MaterialBatch {
+  id                String              @id @default(cuid())
+  batchNumber       String              @unique @map("batch_number")
+  materialId        String              @map("material_id")
+  supplierLotNo     String?             @map("supplier_lot_no")
+  manufacturingDate DateTime?           @map("manufacturing_date")
+  expiryDate        DateTime?           @map("expiry_date")
+  quantity          Decimal             @default(0) @db.Decimal(18, 4)
+  remainingQuantity Decimal             @default(0) @map("remaining_quantity") @db.Decimal(18, 4)
+  status            MaterialBatchStatus @default(AVAILABLE)
+  storageLocation   String?             @map("storage_location")
+  createdAt         DateTime            @default(now()) @map("created_at")
+  updatedAt         DateTime            @updatedAt @map("updated_at")
+
+  material Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+
+  @@index([batchNumber])
+  @@index([materialId])
+  @@index([expiryDate])
+  @@index([status])
+  @@map("material_batches")
 }
 
 model Product {

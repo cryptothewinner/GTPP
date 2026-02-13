@@ -1,6 +1,6 @@
 // apps/api/prisma/seed.ts
 
-import { PrismaClient, MaterialType, ProductionOrderStatus, BatchStatus } from '@prisma/client';
+import { PrismaClient, MaterialType, ProductionOrderStatus, BatchStatus, MaterialBatchStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
@@ -161,6 +161,25 @@ async function seedMaterials() {
         skipDuplicates: true,
     });
     console.log('15 materials seeded.');
+}
+
+async function seedMaterialBatches() {
+    console.log('Seeding material batches...');
+    const materials = await prisma.material.findMany({ select: { id: true, code: true } });
+    const materialMap = Object.fromEntries(materials.map((material) => [material.code, material.id]));
+
+    await prisma.materialBatch.createMany({
+        data: [
+            { batchNumber: 'MB-HM001-20260115-01', materialId: materialMap['HM-001'], supplierLotNo: 'TED001-LOT-2401', manufacturingDate: new Date('2026-01-15'), expiryDate: new Date('2028-01-15'), quantity: 120, remainingQuantity: 95, status: MaterialBatchStatus.AVAILABLE, storageLocation: 'Hammadde Depo A / Raf 01' },
+            { batchNumber: 'MB-HM002-20260110-01', materialId: materialMap['HM-002'], supplierLotNo: 'TED004-OMEGA-090', manufacturingDate: new Date('2026-01-10'), expiryDate: new Date('2026-12-31'), quantity: 80, remainingQuantity: 30, status: MaterialBatchStatus.RESERVED, storageLocation: 'Soguk Oda / Tank 02' },
+            { batchNumber: 'MB-HM003-20260201-01', materialId: materialMap['HM-003'], supplierLotNo: 'TED003-D3-7781', manufacturingDate: new Date('2026-02-01'), expiryDate: new Date('2028-01-31'), quantity: 10, remainingQuantity: 10, status: MaterialBatchStatus.QUARANTINE, storageLocation: 'KK Bekleme Alani / Raf 03' },
+            { batchNumber: 'MB-AM001-20251220-01', materialId: materialMap['AM-001'], supplierLotNo: 'TED005-CAPS-5512', manufacturingDate: new Date('2025-12-20'), expiryDate: new Date('2027-12-19'), quantity: 50000, remainingQuantity: 42000, status: MaterialBatchStatus.AVAILABLE, storageLocation: 'Ambalaj Depo B / Raf 08' },
+            { batchNumber: 'MB-AM004-20251005-01', materialId: materialMap['AM-004'], supplierLotNo: 'TED005-LBL-9330', manufacturingDate: new Date('2025-10-05'), expiryDate: new Date('2026-10-04'), quantity: 100000, remainingQuantity: 0, status: MaterialBatchStatus.CONSUMED, storageLocation: 'Ambalaj Depo C / Raf 02' },
+        ],
+        skipDuplicates: true,
+    });
+
+    console.log('5 material batches seeded.');
 }
 
 async function seedProducts() {
@@ -420,6 +439,7 @@ async function main() {
         await seedMetadata();
         await seedSuppliers();
         await seedMaterials();
+        await seedMaterialBatches();
         await seedProducts();
         await seedRecipes();
         await seedProductionOrders();
