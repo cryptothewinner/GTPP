@@ -26,7 +26,6 @@ import type {
     GridApi,
     GetRowIdParams,
 } from 'ag-grid-enterprise';
-import { ModuleRegistry, AllEnterpriseModule } from 'ag-grid-enterprise';
 
 import { apiClient } from '@/lib/api-client';
 import { useProductionOrderDetail, useUpdateProductionOrder } from '@/hooks/use-production-orders';
@@ -44,7 +43,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { FormEngine } from '@/components/form-engine/form-engine';
 import { useToast } from '@/hooks/use-toast';
 
-ModuleRegistry.registerModules([AllEnterpriseModule]);
+
 
 const STATUS_MAP: Record<string, { label: string; className: string }> = {
     DRAFT: { label: 'Taslak', className: 'bg-slate-400' },
@@ -202,7 +201,9 @@ export default function ProductionPlanningPage() {
 
     const onGridReady = useCallback(
         (event: GridReadyEvent) => {
-            console.log('ProductionPlanning: onGridReady called');
+            console.debug('ProductionGrid: onGridReady called', {
+                rowCount: event.api.getDisplayedRowCount(),
+            });
             setGridApi(event.api);
             event.api.setGridOption('serverSideDatasource', createDatasource());
         },
@@ -355,88 +356,90 @@ export default function ProductionPlanningPage() {
 
                     {/* Grid */}
                     <div className="flex-1 overflow-hidden" style={{ height: '500px', width: '100%' }}>
-                        <AgGridReact
-                            theme={themeQuartz}
-                            ref={gridRef}
-                            getRowId={getRowId}
-                            columnDefs={columnDefs}
-                            defaultColDef={{
-                                sortable: true,
-                                resizable: true,
-                                filter: true,
-                                floatingFilter: false,
-                                flex: 0,
-                            }}
-                            rowHeight={42}
-                            headerHeight={32}
-                            rowModelType="serverSide"
-                            cacheBlockSize={50}
-                            onGridReady={onGridReady}
-                            onRowDoubleClicked={onRowDoubleClicked}
-                            animateRows={true}
-                            rowSelection={{ mode: 'singleRow', checkboxes: false }}
-                            overlayLoadingTemplate='<span class="ag-overlay-loading-center">Y\u00fckleniyor...</span>'
-                            overlayNoRowsTemplate='<span class="ag-overlay-no-rows-center">Kay\u0131t bulunamad\u0131</span>'
-                        />
+                        <div style={{ height: '100%', width: '100%' }}>
+                            <AgGridReact
+                                theme={themeQuartz}
+                                ref={gridRef}
+                                getRowId={getRowId}
+                                columnDefs={columnDefs}
+                                defaultColDef={{
+                                    sortable: true,
+                                    resizable: true,
+                                    filter: true,
+                                    floatingFilter: false,
+                                    flex: 0,
+                                }}
+                                rowHeight={42}
+                                headerHeight={32}
+                                rowModelType="serverSide"
+                                cacheBlockSize={50}
+                                onGridReady={onGridReady}
+                                onRowDoubleClicked={onRowDoubleClicked}
+                                animateRows={true}
+                                rowSelection={{ mode: 'singleRow', checkboxes: false }}
+                                overlayLoadingTemplate='<span class="ag-overlay-loading-center">Yükleniyor...</span>'
+                                overlayNoRowsTemplate='<span class="ag-overlay-no-rows-center">Kayıt bulunamadı</span>'
+                            />
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            {/* Edit Sheet */}
-            <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-                <SheetContent className="w-full sm:max-w-3xl overflow-hidden flex flex-col p-0 border-none rounded-l-3xl shadow-2xl">
-                    <div className="bg-slate-900 text-white p-8 flex-shrink-0 relative overflow-hidden">
-                        <div className="relative z-10">
-                            <SheetHeader>
-                                <div className="flex items-center gap-4 mb-2">
-                                    <div className="p-2 bg-orange-500/20 rounded-xl">
-                                        <Factory className="w-6 h-6 text-orange-400" />
+                {/* Edit Sheet */}
+                <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+                    <SheetContent className="w-full sm:max-w-3xl overflow-hidden flex flex-col p-0 border-none rounded-l-3xl shadow-2xl">
+                        <div className="bg-slate-900 text-white p-8 flex-shrink-0 relative overflow-hidden">
+                            <div className="relative z-10">
+                                <SheetHeader>
+                                    <div className="flex items-center gap-4 mb-2">
+                                        <div className="p-2 bg-orange-500/20 rounded-xl">
+                                            <Factory className="w-6 h-6 text-orange-400" />
+                                        </div>
+                                        <SheetTitle className="text-2xl font-black text-white">
+                                            {isLoadingDetail ? 'Y\u00fckleniyor...' : detail?.orderNumber || '\u00dcretim Emri D\u00fczenle'}
+                                        </SheetTitle>
+                                        {detail?.status && (
+                                            <Badge className={`text-white ${STATUS_MAP[detail.status]?.className ?? 'bg-gray-400'}`}>
+                                                {STATUS_MAP[detail.status]?.label ?? detail.status}
+                                            </Badge>
+                                        )}
                                     </div>
-                                    <SheetTitle className="text-2xl font-black text-white">
-                                        {isLoadingDetail ? 'Y\u00fckleniyor...' : detail?.orderNumber || '\u00dcretim Emri D\u00fczenle'}
-                                    </SheetTitle>
-                                    {detail?.status && (
-                                        <Badge className={`text-white ${STATUS_MAP[detail.status]?.className ?? 'bg-gray-400'}`}>
-                                            {STATUS_MAP[detail.status]?.label ?? detail.status}
-                                        </Badge>
-                                    )}
-                                </div>
-                                <SheetDescription className="text-slate-400 font-medium">
-                                    {detail ? (detail.product?.name ?? 'Se\u00e7ili \u00fcretim emrini d\u00fczenleyin') : 'Se\u00e7ili \u00fcretim emrinin detaylar\u0131n\u0131 g\u00fcncelleyin.'}
-                                </SheetDescription>
-                            </SheetHeader>
+                                    <SheetDescription className="text-slate-400 font-medium">
+                                        {detail ? (detail.product?.name ?? 'Se\u00e7ili \u00fcretim emrini d\u00fczenleyin') : 'Se\u00e7ili \u00fcretim emrinin detaylar\u0131n\u0131 g\u00fcncelleyin.'}
+                                    </SheetDescription>
+                                </SheetHeader>
+                            </div>
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/20 blur-3xl rounded-full -mr-16 -mt-16" />
                         </div>
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/20 blur-3xl rounded-full -mr-16 -mt-16" />
-                    </div>
 
-                    <ScrollArea className="flex-1 px-8 py-8 bg-white">
-                        {isLoadingDetail ? (
-                            <div className="flex flex-col items-center justify-center py-24 space-y-4">
-                                <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                                <p className="text-slate-500 font-medium animate-pulse">\u00dcretim emri verileri getiriliyor...</p>
-                            </div>
-                        ) : detailError ? (
-                            <div className="text-center py-24 space-y-4">
-                                <p className="text-rose-500 font-bold">Veri Y\u00fckleme Hatas\u0131</p>
-                                <p className="text-slate-500 text-sm">{(detailError as any).message}</p>
-                            </div>
-                        ) : detail ? (
-                            <FormEngine
-                                entitySlug="production-order-card"
-                                initialData={detail}
-                                onSubmit={handleSheetSubmit}
-                                isSubmitting={updateMutation.isPending}
-                                onCancel={() => setSheetOpen(false)}
-                                className="pb-12"
-                            />
-                        ) : (
-                            <div className="text-center py-24">
-                                <p className="text-slate-400 italic">\u00dcretim emri bulunamad\u0131 veya ID ge\u00e7ersiz.</p>
-                            </div>
-                        )}
-                    </ScrollArea>
-                </SheetContent>
-            </Sheet>
+                        <ScrollArea className="flex-1 px-8 py-8 bg-white">
+                            {isLoadingDetail ? (
+                                <div className="flex flex-col items-center justify-center py-24 space-y-4">
+                                    <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                                    <p className="text-slate-500 font-medium animate-pulse">\u00dcretim emri verileri getiriliyor...</p>
+                                </div>
+                            ) : detailError ? (
+                                <div className="text-center py-24 space-y-4">
+                                    <p className="text-rose-500 font-bold">Veri Y\u00fckleme Hatas\u0131</p>
+                                    <p className="text-slate-500 text-sm">{(detailError as any).message}</p>
+                                </div>
+                            ) : detail ? (
+                                <FormEngine
+                                    entitySlug="production-order-card"
+                                    initialData={detail}
+                                    onSubmit={handleSheetSubmit}
+                                    isSubmitting={updateMutation.isPending}
+                                    onCancel={() => setSheetOpen(false)}
+                                    className="pb-12"
+                                />
+                            ) : (
+                                <div className="text-center py-24">
+                                    <p className="text-slate-400 italic">\u00dcretim emri bulunamad\u0131 veya ID ge\u00e7ersiz.</p>
+                                </div>
+                            )}
+                        </ScrollArea>
+                    </SheetContent>
+                </Sheet>
+            </div>
         </div>
     );
 }

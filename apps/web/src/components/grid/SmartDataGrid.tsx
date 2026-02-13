@@ -11,12 +11,9 @@ import type {
     RowClickedEvent,
     GridApi,
 } from 'ag-grid-enterprise';
-import { ModuleRegistry, AllEnterpriseModule } from 'ag-grid-enterprise';
 import { apiClient } from '@/lib/api-client';
 import type { ServerSideRequest, ServerSideResponse, FieldMetadata } from '@sepenatural/shared';
 
-// Register AG Grid Enterprise modules once
-ModuleRegistry.registerModules([AllEnterpriseModule]);
 
 // ---- Type Mapping: Metadata -> AG Grid ColDef ----
 function fieldToColDef(field: FieldMetadata): ColDef {
@@ -177,6 +174,9 @@ export function SmartDataGrid<T = any>({
     const onGridReady = useCallback(
         (params: GridReadyEvent) => {
             setGridApi(params.api);
+            console.debug('SmartGrid: onGridReady called', {
+                rowCount: params.api.getDisplayedRowCount(),
+            });
             params.api.setGridOption('serverSideDatasource', createDatasource());
         },
         [createDatasource],
@@ -237,51 +237,53 @@ export function SmartDataGrid<T = any>({
             className={className}
             style={{ height, width: '100%' }}
         >
-            <AgGridReact
-                theme={themeQuartz}
-                ref={gridRef}
-                columnDefs={columnDefs}
-                defaultColDef={defaultColDef}
-                rowModelType="serverSide"
-                cacheBlockSize={pageSize}
-                maxBlocksInCache={10}
-                onGridReady={onGridReady}
-                onRowClicked={handleRowClicked}
-                onRowDoubleClicked={handleRowDoubleClicked}
-                rowSelection={rowSelection}
-                animateRows={true}
-                enableCellTextSelection={true}
-                statusBar={statusBarConfig}
-                tooltipShowDelay={500}
-                overlayLoadingTemplate='<span class="ag-overlay-loading-center">Veriler yükleniyor...</span>'
-                overlayNoRowsTemplate='<span class="ag-overlay-no-rows-center">Kayıt bulunamadı</span>'
-                localeText={{
-                    // Turkish locale overrides
-                    page: 'Sayfa',
-                    more: 'Daha',
-                    to: '-',
-                    of: '/',
-                    next: 'İleri',
-                    last: 'Son',
-                    first: 'İlk',
-                    previous: 'Geri',
-                    loadingOoo: 'Yükleniyor...',
-                    noRowsToShow: 'Kayıt bulunamadı',
-                    filterOoo: 'Filtrele...',
-                    equals: 'Eşittir',
-                    notEqual: 'Eşit Değil',
-                    contains: 'İçerir',
-                    notContains: 'İçermez',
-                    startsWith: 'İle Başlar',
-                    endsWith: 'İle Biter',
-                    lessThan: 'Küçüktür',
-                    greaterThan: 'Büyüktür',
-                    searchOoo: 'Ara...',
-                    selectAll: 'Tümünü Seç',
-                    blanks: 'Boş',
-                    notBlank: 'Boş Değil',
-                }}
-            />
+            <div style={{ height: '100%', width: '100%' }}>
+                <AgGridReact
+                    theme={themeQuartz}
+                    ref={gridRef}
+                    columnDefs={columnDefs}
+                    defaultColDef={defaultColDef}
+                    rowModelType="serverSide"
+                    cacheBlockSize={pageSize}
+                    maxBlocksInCache={10}
+                    onGridReady={onGridReady}
+                    onRowClicked={handleRowClicked}
+                    onRowDoubleClicked={handleRowDoubleClicked}
+                    rowSelection={rowSelection}
+                    animateRows={true}
+                    enableCellTextSelection={true}
+                    statusBar={statusBarConfig}
+                    tooltipShowDelay={500}
+                    overlayLoadingTemplate='<span class="ag-overlay-loading-center">Veriler yükleniyor...</span>'
+                    overlayNoRowsTemplate='<span class="ag-overlay-no-rows-center">Kayıt bulunamadı</span>'
+                    localeText={{
+                        // Turkish locale overrides
+                        page: 'Sayfa',
+                        more: 'Daha',
+                        to: '-',
+                        of: '/',
+                        next: 'İleri',
+                        last: 'Son',
+                        first: 'İlk',
+                        previous: 'Geri',
+                        loadingOoo: 'Yükleniyor...',
+                        noRowsToShow: 'Kayıt bulunamadı',
+                        filterOoo: 'Filtrele...',
+                        equals: 'Eşittir',
+                        notEqual: 'Eşit Değil',
+                        contains: 'İçerir',
+                        notContains: 'İçermez',
+                        startsWith: 'İle Başlar',
+                        endsWith: 'İle Biter',
+                        lessThan: 'Küçüktür',
+                        greaterThan: 'Büyüktür',
+                        searchOoo: 'Ara...',
+                        selectAll: 'Tümünü Seç',
+                        blanks: 'Boş',
+                        notBlank: 'Boş Değil',
+                    }}
+                />
+            </div>
         </div>
     );
 }

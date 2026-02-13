@@ -12,7 +12,6 @@ import type {
     GridApi,
     GetRowIdParams,
 } from 'ag-grid-enterprise';
-import { ModuleRegistry, AllEnterpriseModule } from 'ag-grid-enterprise';
 import { apiClient } from '@/lib/api-client';
 import { StockEditSheet } from './stock-edit-sheet';
 import { Badge } from '@/components/ui/badge';
@@ -20,7 +19,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Search, Package, TrendingUp, Filter } from 'lucide-react';
 
-ModuleRegistry.registerModules([AllEnterpriseModule]);
 
 interface StockRow {
     id: string;
@@ -192,37 +190,39 @@ export function StockDataGrid() {
 
             {/* Grid Container */}
             <div className="flex-1 overflow-hidden" style={{ height: '500px', width: '100%' }}>
-                <AgGridReact
-                    theme={themeQuartz}
-                    ref={gridRef}
-                    getRowId={getRowId}
-                    columnDefs={columnDefs}
-                    defaultColDef={{
-                        sortable: true,
-                        resizable: true,
-                        filter: true,
-                        floatingFilter: false,
-                        flex: 0,
-                    }}
-                    rowHeight={42}
-                    headerHeight={32}
-                    rowModelType="serverSide"
-                    cacheBlockSize={50}
-                    onGridReady={onGridReady}
-                    onRowDoubleClicked={onRowDoubleClicked}
-                    animateRows={true}
-                    rowSelection={{ mode: 'singleRow', checkboxes: false }}
-                    overlayLoadingTemplate='<span class="ag-overlay-loading-center">Yükleniyor...</span>'
-                    overlayNoRowsTemplate='<span class="ag-overlay-no-rows-center">Kayıt bulunamadı</span>'
+                <div style={{ height: '100%', width: '100%' }}>
+                    <AgGridReact
+                        theme={themeQuartz}
+                        ref={gridRef}
+                        getRowId={getRowId}
+                        columnDefs={columnDefs}
+                        defaultColDef={{
+                            sortable: true,
+                            resizable: true,
+                            filter: true,
+                            floatingFilter: false,
+                            flex: 0,
+                        }}
+                        rowHeight={42}
+                        headerHeight={32}
+                        rowModelType="serverSide"
+                        cacheBlockSize={50}
+                        onGridReady={onGridReady}
+                        onRowDoubleClicked={onRowDoubleClicked}
+                        animateRows={true}
+                        rowSelection={{ mode: 'singleRow', checkboxes: false }}
+                        overlayLoadingTemplate='<span class="ag-overlay-loading-center">Yükleniyor...</span>'
+                        overlayNoRowsTemplate='<span class="ag-overlay-no-rows-center">Kayıt bulunamadı</span>'
+                    />
+                </div>
+
+                {/* Edit Component */}
+                <StockEditSheet
+                    stockId={selectedStockId}
+                    open={sheetOpen}
+                    onOpenChange={setSheetOpen}
                 />
             </div>
-
-            {/* Edit Component */}
-            <StockEditSheet
-                stockId={selectedStockId}
-                open={sheetOpen}
-                onOpenChange={setSheetOpen}
-            />
         </div>
     );
 }

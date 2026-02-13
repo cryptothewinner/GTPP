@@ -11,7 +11,6 @@ import type {
     GridApi,
     GetRowIdParams,
 } from 'ag-grid-enterprise';
-import { ModuleRegistry, AllEnterpriseModule } from 'ag-grid-enterprise';
 import { apiClient } from '@/lib/api-client';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -46,7 +45,6 @@ import {
     PackageOpen,
 } from 'lucide-react';
 
-ModuleRegistry.registerModules([AllEnterpriseModule]);
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -309,7 +307,9 @@ export default function RawMaterialsPage() {
 
     const onGridReady = useCallback(
         (event: GridReadyEvent) => {
-            console.log('MaterialsGrid: onGridReady called');
+            console.debug('MaterialsGrid: onGridReady called', {
+                rowCount: event.api.getDisplayedRowCount(),
+            });
             setGridApi(event.api);
             event.api.setGridOption(
                 'serverSideDatasource',
@@ -495,32 +495,34 @@ export default function RawMaterialsPage() {
 
                     {/* AG Grid */}
                     <div className="flex-1 overflow-hidden" style={{ height: '500px', width: '100%', backgroundColor: '#f8fafc' }}>
-                        <AgGridReact
-                            theme={themeQuartz}
-                            ref={gridRef}
-                            getRowId={getRowId}
-                            columnDefs={columnDefs}
-                            defaultColDef={{
-                                sortable: true,
-                                resizable: true,
-                                filter: true,
-                                floatingFilter: false,
-                                flex: 0,
-                            }}
-                            rowHeight={42}
-                            headerHeight={32}
-                            rowModelType="serverSide"
-                            cacheBlockSize={50}
-                            onGridReady={onGridReady}
-                            onRowDoubleClicked={onRowDoubleClicked}
-                            animateRows={true}
-                            rowSelection={{
-                                mode: 'singleRow',
-                                checkboxes: false,
-                            }}
-                            overlayLoadingTemplate='<span class="ag-overlay-loading-center">Yükleniyor...</span>'
-                            overlayNoRowsTemplate='<span class="ag-overlay-no-rows-center">Kayıt bulunamadı</span>'
-                        />
+                        <div style={{ height: '100%', width: '100%' }}>
+                            <AgGridReact
+                                theme={themeQuartz}
+                                ref={gridRef}
+                                getRowId={getRowId}
+                                columnDefs={columnDefs}
+                                defaultColDef={{
+                                    sortable: true,
+                                    resizable: true,
+                                    filter: true,
+                                    floatingFilter: false,
+                                    flex: 0,
+                                }}
+                                rowHeight={42}
+                                headerHeight={32}
+                                rowModelType="serverSide"
+                                cacheBlockSize={50}
+                                onGridReady={onGridReady}
+                                onRowDoubleClicked={onRowDoubleClicked}
+                                animateRows={true}
+                                rowSelection={{
+                                    mode: 'singleRow',
+                                    checkboxes: false,
+                                }}
+                                overlayLoadingTemplate='<span class="ag-overlay-loading-center">Yükleniyor...</span>'
+                                overlayNoRowsTemplate='<span class="ag-overlay-no-rows-center">Kayıt bulunamadı</span>'
+                            />
+                        </div>
                     </div>
                 </div>
             </div>
