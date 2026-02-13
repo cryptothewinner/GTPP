@@ -72,3 +72,14 @@ export function useUpdateMaterial() {
         },
     });
 }
+
+export function useCreateMaterial() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (data: any) => apiClient.post<WrappedMaterialDetailResponse>('/materials', data),
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ['materials', 'list'] });
+            qc.invalidateQueries({ queryKey: ['materials-summary'] });
+        },
+    });
+}

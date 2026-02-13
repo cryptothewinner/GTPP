@@ -117,9 +117,10 @@ export default function ProductionBatchesPage() {
                                             <tr>
                                                 <th className="text-left px-3 py-2">Malzeme Kodu</th>
                                                 <th className="text-left px-3 py-2">Malzeme Adı</th>
-                                                <th className="text-left px-3 py-2">Malzeme Lotu</th>
+                                                <th className="text-left px-3 py-2">Malzeme Parti No</th>
+                                                <th className="text-left px-3 py-2">Tedarikçi Lot No</th>
                                                 <th className="text-right px-3 py-2">Tüketim Miktarı</th>
-                                                <th className="text-left px-3 py-2">Malzeme Depo Lokasyonu</th>
+                                                <th className="text-left px-3 py-2">Depo Lokasyonu</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -127,13 +128,14 @@ export default function ProductionBatchesPage() {
                                                 <tr key={item.id} className="border-t border-slate-100">
                                                     <td className="px-3 py-2">{item.materialBatch.material.code}</td>
                                                     <td className="px-3 py-2">{item.materialBatch.material.name}</td>
-                                                    <td className="px-3 py-2">{item.materialBatch.batchNumber}</td>
-                                                    <td className="px-3 py-2 text-right">{item.quantity} {item.unit}</td>
+                                                    <td className="px-3 py-2 font-mono text-xs">{item.materialBatch.batchNumber}</td>
+                                                    <td className="px-3 py-2 font-mono text-xs">{item.materialBatch.supplierLotNo ?? '-'}</td>
+                                                    <td className="px-3 py-2 text-right">{item.consumedQuantity} {item.unit}</td>
                                                     <td className="px-3 py-2">{item.materialStorageLocation ?? '-'}</td>
                                                 </tr>
                                             )) : (
                                                 <tr>
-                                                    <td colSpan={5} className="px-3 py-6 text-center text-slate-500">
+                                                    <td colSpan={6} className="px-3 py-6 text-center text-slate-500">
                                                         Bu parti için tüketim kaydı bulunamadı.
                                                     </td>
                                                 </tr>

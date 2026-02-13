@@ -307,6 +307,201 @@ async function seedProductionBatches() {
     console.log('10 production batches seeded.');
 }
 
+async function seedConsumptions() {
+    console.log('Seeding production batch consumptions...');
+    const batches = await prisma.productionBatch.findMany({ select: { id: true, batchNumber: true } });
+    const batchMap = Object.fromEntries(batches.map(b => [b.batchNumber, b.id]));
+
+    const materialBatches = await prisma.materialBatch.findMany({ select: { id: true, batchNumber: true } });
+    const mbMap = Object.fromEntries(materialBatches.map(mb => [mb.batchNumber, mb.id]));
+
+    const recipes = await prisma.recipe.findMany({ include: { items: true } });
+    const recipeMap = Object.fromEntries(recipes.map(r => [r.code, r]));
+
+    // BAT-20260201-001: Vitamin C parti 1 (REC-001: HM-001, AM-003, AM-004)
+    // Uses material batch MB-HM001 for Vitamin C
+    await prisma.productionBatchConsumption.createMany({
+        data: [
+            {
+                productionBatchId: batchMap['BAT-20260201-001'],
+                materialBatchId: mbMap['MB-HM001-20260115-01'],
+                recipeItemId: recipeMap['REC-001'].items.find(i => i.order === 1)?.id,
+                consumedQuantity: 2.75,
+                unit: 'Kg',
+                materialStorageLocation: 'Hammadde Depo A / Raf 01',
+                timestamp: new Date('2026-02-01T08:30:00'),
+            },
+            {
+                productionBatchId: batchMap['BAT-20260201-001'],
+                materialBatchId: mbMap['MB-AM001-20251220-01'],
+                recipeItemId: recipeMap['REC-001'].items.find(i => i.order === 2)?.id,
+                consumedQuantity: 250,
+                unit: 'Adet',
+                materialStorageLocation: 'Ambalaj Depo B / Raf 08',
+                timestamp: new Date('2026-02-01T09:00:00'),
+            },
+            {
+                productionBatchId: batchMap['BAT-20260201-001'],
+                materialBatchId: mbMap['MB-AM004-20251005-01'],
+                recipeItemId: recipeMap['REC-001'].items.find(i => i.order === 3)?.id,
+                consumedQuantity: 2500,
+                unit: 'Adet',
+                materialStorageLocation: 'Ambalaj Depo C / Raf 02',
+                timestamp: new Date('2026-02-01T09:30:00'),
+            },
+        ],
+    });
+
+    // BAT-20260201-002: Vitamin C parti 2
+    await prisma.productionBatchConsumption.createMany({
+        data: [
+            {
+                productionBatchId: batchMap['BAT-20260201-002'],
+                materialBatchId: mbMap['MB-HM001-20260115-01'],
+                recipeItemId: recipeMap['REC-001'].items.find(i => i.order === 1)?.id,
+                consumedQuantity: 2.75,
+                unit: 'Kg',
+                materialStorageLocation: 'Hammadde Depo A / Raf 01',
+                timestamp: new Date('2026-02-02T08:30:00'),
+            },
+            {
+                productionBatchId: batchMap['BAT-20260201-002'],
+                materialBatchId: mbMap['MB-AM001-20251220-01'],
+                recipeItemId: recipeMap['REC-001'].items.find(i => i.order === 2)?.id,
+                consumedQuantity: 250,
+                unit: 'Adet',
+                materialStorageLocation: 'Ambalaj Depo B / Raf 08',
+                timestamp: new Date('2026-02-02T09:00:00'),
+            },
+            {
+                productionBatchId: batchMap['BAT-20260201-002'],
+                materialBatchId: mbMap['MB-AM004-20251005-01'],
+                recipeItemId: recipeMap['REC-001'].items.find(i => i.order === 3)?.id,
+                consumedQuantity: 2500,
+                unit: 'Adet',
+                materialStorageLocation: 'Ambalaj Depo C / Raf 02',
+                timestamp: new Date('2026-02-02T09:30:00'),
+            },
+        ],
+    });
+
+    // BAT-20260203-001: Omega-3 parti 1 (REC-002: HM-002, AM-001, AM-004)
+    await prisma.productionBatchConsumption.createMany({
+        data: [
+            {
+                productionBatchId: batchMap['BAT-20260203-001'],
+                materialBatchId: mbMap['MB-HM002-20260110-01'],
+                recipeItemId: recipeMap['REC-002'].items.find(i => i.order === 1)?.id,
+                consumedQuantity: 2.1,
+                unit: 'Lt',
+                materialStorageLocation: 'Soguk Oda / Tank 02',
+                timestamp: new Date('2026-02-03T08:00:00'),
+            },
+            {
+                productionBatchId: batchMap['BAT-20260203-001'],
+                materialBatchId: mbMap['MB-AM001-20251220-01'],
+                recipeItemId: recipeMap['REC-002'].items.find(i => i.order === 2)?.id,
+                consumedQuantity: 1500,
+                unit: 'Adet',
+                materialStorageLocation: 'Ambalaj Depo B / Raf 08',
+                timestamp: new Date('2026-02-03T08:30:00'),
+            },
+            {
+                productionBatchId: batchMap['BAT-20260203-001'],
+                materialBatchId: mbMap['MB-AM004-20251005-01'],
+                recipeItemId: recipeMap['REC-002'].items.find(i => i.order === 3)?.id,
+                consumedQuantity: 1500,
+                unit: 'Adet',
+                materialStorageLocation: 'Ambalaj Depo C / Raf 02',
+                timestamp: new Date('2026-02-03T09:00:00'),
+            },
+        ],
+    });
+
+    // BAT-20260203-002: Omega-3 parti 2
+    await prisma.productionBatchConsumption.createMany({
+        data: [
+            {
+                productionBatchId: batchMap['BAT-20260203-002'],
+                materialBatchId: mbMap['MB-HM002-20260110-01'],
+                recipeItemId: recipeMap['REC-002'].items.find(i => i.order === 1)?.id,
+                consumedQuantity: 2.1,
+                unit: 'Lt',
+                materialStorageLocation: 'Soguk Oda / Tank 02',
+                timestamp: new Date('2026-02-04T08:00:00'),
+            },
+            {
+                productionBatchId: batchMap['BAT-20260203-002'],
+                materialBatchId: mbMap['MB-AM001-20251220-01'],
+                recipeItemId: recipeMap['REC-002'].items.find(i => i.order === 2)?.id,
+                consumedQuantity: 1500,
+                unit: 'Adet',
+                materialStorageLocation: 'Ambalaj Depo B / Raf 08',
+                timestamp: new Date('2026-02-04T08:30:00'),
+            },
+            {
+                productionBatchId: batchMap['BAT-20260203-002'],
+                materialBatchId: mbMap['MB-AM004-20251005-01'],
+                recipeItemId: recipeMap['REC-002'].items.find(i => i.order === 3)?.id,
+                consumedQuantity: 1500,
+                unit: 'Adet',
+                materialStorageLocation: 'Ambalaj Depo C / Raf 02',
+                timestamp: new Date('2026-02-04T09:00:00'),
+            },
+        ],
+    });
+
+    // BAT-20260205-001: D3+K2 parti 1 (REC-003: HM-003, AM-002, AM-004)
+    await prisma.productionBatchConsumption.createMany({
+        data: [
+            {
+                productionBatchId: batchMap['BAT-20260205-001'],
+                materialBatchId: mbMap['MB-HM003-20260201-01'],
+                recipeItemId: recipeMap['REC-003'].items.find(i => i.order === 1)?.id,
+                consumedQuantity: 0.06,
+                unit: 'Kg',
+                materialStorageLocation: 'KK Bekleme Alani / Raf 03',
+                timestamp: new Date('2026-02-05T10:00:00'),
+            },
+        ],
+    });
+
+    // BAT-20260208-001: Vitamin C buyuk parti (REC-001)
+    await prisma.productionBatchConsumption.createMany({
+        data: [
+            {
+                productionBatchId: batchMap['BAT-20260208-001'],
+                materialBatchId: mbMap['MB-HM001-20260115-01'],
+                recipeItemId: recipeMap['REC-001'].items.find(i => i.order === 1)?.id,
+                consumedQuantity: 3.3,
+                unit: 'Kg',
+                materialStorageLocation: 'Hammadde Depo A / Raf 01',
+                timestamp: new Date('2026-02-08T07:30:00'),
+            },
+            {
+                productionBatchId: batchMap['BAT-20260208-001'],
+                materialBatchId: mbMap['MB-AM001-20251220-01'],
+                recipeItemId: recipeMap['REC-001'].items.find(i => i.order === 2)?.id,
+                consumedQuantity: 300,
+                unit: 'Adet',
+                materialStorageLocation: 'Ambalaj Depo B / Raf 08',
+                timestamp: new Date('2026-02-08T08:00:00'),
+            },
+            {
+                productionBatchId: batchMap['BAT-20260208-001'],
+                materialBatchId: mbMap['MB-AM004-20251005-01'],
+                recipeItemId: recipeMap['REC-002'].items.find(i => i.order === 3)?.id,
+                consumedQuantity: 3000,
+                unit: 'Adet',
+                materialStorageLocation: 'Ambalaj Depo C / Raf 02',
+                timestamp: new Date('2026-02-08T08:30:00'),
+            },
+        ],
+    });
+
+    console.log('Consumption records seeded for 6 production batches.');
+}
+
 async function seedProductionMetadata() {
     console.log('Seeding production entity metadata...');
 
@@ -444,6 +639,7 @@ async function main() {
         await seedRecipes();
         await seedProductionOrders();
         await seedProductionBatches();
+        await seedConsumptions();
         await seedProductionMetadata();
         console.log('\nAll seeds completed successfully!');
     } catch (error) {

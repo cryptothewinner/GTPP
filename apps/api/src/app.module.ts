@@ -11,6 +11,7 @@ import { ProductModule } from './modules/product/product.module';
 import { RecipeModule } from './modules/recipe/recipe.module';
 import { ProductionOrderModule } from './modules/production-order/production-order.module';
 import { ProductionBatchModule } from './modules/production-batch/production-batch.module';
+import { MaterialBatchModule } from './modules/material-batch/material-batch.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { HealthController } from './health.controller';
 import { APP_GUARD } from '@nestjs/core';
@@ -36,6 +37,7 @@ import { PerformanceMetricsService } from './modules/performance/performance-met
         RecipeModule,
         ProductionOrderModule,
         ProductionBatchModule,
+        MaterialBatchModule,
         DashboardModule,
     ],
     controllers: [HealthController, PerformanceController],

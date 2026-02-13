@@ -29,7 +29,8 @@ export class ProductionBatchController {
 
     @Get(':id')
     async findOne(@Param('id') id: string) {
-        return this.productionBatchService.findOne(id);
+        const batch = await this.productionBatchService.findOne(id);
+        return { success: true, data: batch };
     }
 
     @Post()

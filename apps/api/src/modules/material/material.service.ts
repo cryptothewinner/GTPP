@@ -1,5 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { CreateMaterialDto } from './dto/create-material.dto';
+import { MaterialType } from '@prisma/client';
 
 interface FindAllParams {
     page: number;
@@ -58,7 +60,21 @@ export class MaterialService {
         }
 
         const [data, total] = await Promise.all([
-            this.prisma.material.findMany({ where, orderBy: orderBy as any, skip, take: pageSize, include: { supplier: { select: { id: true, code: true, name: true } } } }),
+            this.prisma.material.findMany({
+                where,
+                orderBy: orderBy as any,
+                skip,
+                take: pageSize,
+                include: {
+                    supplier: { select: { id: true, code: true, name: true } },
+                    batches: {
+                        select: { batchNumber: true, status: true, remainingQuantity: true },
+                        where: { status: 'AVAILABLE' },
+                        orderBy: { createdAt: 'desc' },
+                        take: 5
+                    }
+                }
+            }),
             this.prisma.material.count({ where }),
         ]);
 
@@ -71,8 +87,36 @@ export class MaterialService {
         return material;
     }
 
-    async create(dto: any) {
-        return this.prisma.material.create({ data: dto });
+    async create(dto: CreateMaterialDto) {
+        const data = {
+            ...dto,
+            code: dto.code || await this.generateCode(dto.type),
+        };
+        return this.prisma.material.create({ data });
+    }
+
+    private async generateCode(type: MaterialType): Promise<string> {
+        const prefixes: Record<MaterialType, string> = {
+            RAW_MATERIAL: 'HM',
+            PACKAGING: 'AM',
+            SEMI_FINISHED: 'YM',
+            FINISHED_PRODUCT: 'UR',
+        };
+        const prefix = prefixes[type] || 'M';
+
+        const lastItem = await this.prisma.material.findFirst({
+            where: { code: { startsWith: prefix } },
+            orderBy: { code: 'desc' },
+        });
+
+        if (!lastItem) return `${prefix}-001`;
+
+        const lastCode = lastItem.code;
+        const numberPart = lastCode.split('-')[1];
+        if (!numberPart || isNaN(Number(numberPart))) return `${prefix}-${Date.now()}`;
+
+        const nextNumber = Number(numberPart) + 1;
+        return `${prefix}-${nextNumber.toString().padStart(3, '0')}`;
     }
 
     async update(id: string, dto: any) {
@@ -91,5 +135,42 @@ export class MaterialService {
         const byType = byTypeRaw.map((item) => ({ type: item.type, count: item._count.id }));
 
         return { totalMaterials, lowStockCount, byType };
+    }
+
+    async syncInitialBatches() {
+        const materials = await this.prisma.material.findMany({
+            include: { batches: true },
+        });
+
+        let createdCount = 0;
+
+        for (const material of materials) {
+            const currentStock = Number(material.currentStock);
+            if (currentStock <= 0) continue;
+
+            const batchTotal = material.batches.reduce((sum, b) => sum + Number(b.remainingQuantity), 0);
+
+            // If there's a discrepancy or no batches at all for positive stock
+            if (batchTotal < currentStock) {
+                const diff = currentStock - batchTotal;
+
+                await this.prisma.materialBatch.create({
+                    data: {
+                        materialId: material.id,
+                        batchNumber: `${material.code}-INIT-${new Date().getFullYear()}`,
+                        supplierLotNo: 'DEVIR',
+                        quantity: diff,
+                        remainingQuantity: diff,
+                        status: 'AVAILABLE',
+                        manufacturingDate: new Date(),
+                        expiryDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),
+                        storageLocation: 'DEPO-1',
+                    },
+                });
+                createdCount++;
+            }
+        }
+
+        return { success: true, message: `${createdCount} adet malzeme için açılış partisi oluşturuldu.` };
     }
 }

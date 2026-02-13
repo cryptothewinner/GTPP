@@ -32,6 +32,11 @@ export class MaterialController {
         return this.materialService.findOne(id);
     }
 
+    @Post('sync-batches')
+    async syncBatches() {
+        return this.materialService.syncInitialBatches();
+    }
+
     @Post()
     async create(@Body() dto: CreateMaterialDto) {
         const material = await this.materialService.create(dto);

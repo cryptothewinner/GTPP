@@ -55,8 +55,9 @@ const navItems: NavItem[] = [
         label: 'Malzemeler',
         icon: <Layers className="w-4 h-4" />,
         children: [
-            { label: 'Hammaddeler', href: '/materials/raw', icon: <Layers className="w-4 h-4" /> },
+            { label: 'Malzemeler', href: '/materials/raw', icon: <Layers className="w-4 h-4" /> },
             { label: 'Ürün Listesi', href: '/materials/products', icon: <ShoppingBag className="w-4 h-4" /> },
+            { label: 'Partiler', href: '/materials/batches', icon: <FlaskConical className="w-4 h-4" /> },
         ],
     },
     {
@@ -181,8 +182,8 @@ export function LightningShell({ children }: { children: React.ReactNode }) {
                                     <button
                                         onClick={() => handleTabClick(item)}
                                         className={`flex items-center gap-2 px-4 py-3 text-[13px] font-semibold border-b-2 transition-all shrink-0 cursor-pointer ${isActive
-                                                ? 'text-lightning-blue border-lightning-blue bg-white shadow-[0_-2px_0_inset_#0176D3]'
-                                                : 'text-slate-600 border-transparent hover:bg-white/50'
+                                            ? 'text-lightning-blue border-lightning-blue bg-white shadow-[0_-2px_0_inset_#0176D3]'
+                                            : 'text-slate-600 border-transparent hover:bg-white/50'
                                             }`}
                                     >
                                         <span className={isActive ? 'text-lightning-blue' : 'text-slate-400'}>
@@ -203,8 +204,8 @@ export function LightningShell({ children }: { children: React.ReactNode }) {
                                 key={item.href}
                                 href={item.href!}
                                 className={`flex items-center gap-2 px-4 py-3 text-[13px] font-semibold border-b-2 transition-all shrink-0 ${isActive
-                                        ? 'text-lightning-blue border-lightning-blue bg-white shadow-[0_-2px_0_inset_#0176D3]'
-                                        : 'text-slate-600 border-transparent hover:bg-white/50'
+                                    ? 'text-lightning-blue border-lightning-blue bg-white shadow-[0_-2px_0_inset_#0176D3]'
+                                    : 'text-slate-600 border-transparent hover:bg-white/50'
                                     }`}
                             >
                                 <span className={isActive ? 'text-lightning-blue' : 'text-slate-400'}>
@@ -232,8 +233,8 @@ export function LightningShell({ children }: { children: React.ReactNode }) {
                                             key={child.href}
                                             href={child.href}
                                             className={`flex items-center gap-2 px-4 py-2.5 text-[13px] font-medium rounded-md transition-all ${isChildActive
-                                                    ? 'text-lightning-blue bg-blue-50'
-                                                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                                                ? 'text-lightning-blue bg-blue-50'
+                                                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                                                 }`}
                                         >
                                             <span className={isChildActive ? 'text-lightning-blue' : 'text-slate-400'}>

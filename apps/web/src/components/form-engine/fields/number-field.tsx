@@ -43,6 +43,7 @@ export function NumberField({ field }: NumberFieldProps) {
                                 disabled={field.disabled}
                                 className={`${field.prefix ? 'pl-8' : ''} ${field.suffix ? 'pr-8' : ''}`}
                                 {...formField}
+                                value={formField.value ?? ''}
                                 onChange={(e) => {
                                     const value = e.target.value;
                                     formField.onChange(value === '' ? '' : Number(value));

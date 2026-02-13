@@ -42,6 +42,7 @@ import {
     Beaker,
     PackageOpen,
 } from 'lucide-react';
+import { CreateMaterialSheet } from './create-material-sheet';
 
 
 /* ------------------------------------------------------------------ */
@@ -58,6 +59,7 @@ interface MaterialRow {
     unitPrice: number;
     supplier?: { name: string };
     isActive: boolean;
+    batches?: { batchNumber: string; remainingQuantity: number }[];
 }
 
 function unwrapMaterialDetail(response: MaterialDetailResponse | undefined): MaterialDetail | null {
@@ -101,6 +103,7 @@ export default function RawMaterialsPage() {
         [],
     );
     const [sheetOpen, setSheetOpen] = useState(false);
+    const [createSheetOpen, setCreateSheetOpen] = useState(false);
 
     const {
         data: detailResponse,
@@ -233,6 +236,31 @@ export default function RawMaterialsPage() {
                 valueGetter: (params: any) =>
                     params.data?.supplier?.name ?? '-',
                 cellClass: 'text-slate-600',
+            },
+            {
+                headerName: 'MEVCUT PARTİLER',
+                width: 160,
+                headerClass:
+                    'text-[11px] font-bold text-slate-500 uppercase tracking-wider',
+                cellRenderer: (params: any) => {
+                    const batches = params.data?.batches || [];
+                    if (batches.length === 0) return <span className="text-slate-400">-</span>;
+
+                    return (
+                        <div className="flex items-center gap-1 flex-wrap py-1">
+                            {batches.slice(0, 2).map((b: any) => (
+                                <Badge key={b.batchNumber} variant="outline" className="text-[10px] h-5 px-1 bg-slate-50 border-slate-200 text-slate-600">
+                                    {b.batchNumber}
+                                </Badge>
+                            ))}
+                            {batches.length > 2 && (
+                                <Badge variant="secondary" className="text-[10px] h-5 px-1">
+                                    +{batches.length - 2}
+                                </Badge>
+                            )}
+                        </div>
+                    );
+                },
             },
             {
                 field: 'minStockLevel',
@@ -388,7 +416,10 @@ export default function RawMaterialsPage() {
                             />
                             Yenile
                         </Button>
-                        <Button className="bg-[#38b2ac] hover:bg-[#2c9a94] text-white h-[32px] px-4 font-bold rounded shadow-sm">
+                        <Button
+                            className="bg-[#38b2ac] hover:bg-[#2c9a94] text-white h-[32px] px-4 font-bold rounded shadow-sm"
+                            onClick={() => setCreateSheetOpen(true)}
+                        >
                             <Plus className="w-4 h-4 mr-1" />
                             Yeni Malzeme Ekle
                         </Button>
@@ -577,6 +608,11 @@ export default function RawMaterialsPage() {
                     </ScrollArea>
                 </SheetContent>
             </Sheet>
+
+            <CreateMaterialSheet
+                open={createSheetOpen}
+                onOpenChange={setCreateSheetOpen}
+            />
         </div>
     );
 }

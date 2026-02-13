@@ -38,6 +38,7 @@ export function TextField({ field }: TextFieldProps) {
                                 disabled={field.disabled}
                                 rows={4}
                                 {...formField}
+                                value={formField.value ?? ''}
                             />
                         ) : (
                             <div className="relative">
@@ -52,6 +53,7 @@ export function TextField({ field }: TextFieldProps) {
                                     disabled={field.disabled}
                                     className={field.prefix ? 'pl-8' : undefined}
                                     {...formField}
+                                    value={formField.value ?? ''}
                                 />
                                 {field.suffix && (
                                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">

@@ -12,12 +12,13 @@ interface ListParams {
 
 export interface BatchConsumption {
     id: string;
-    quantity: number;
+    consumedQuantity: number;
     unit: string;
     materialStorageLocation?: string;
     materialBatch: {
         id: string;
         batchNumber: string;
+        supplierLotNo?: string;
         storageLocation?: string;
         material: {
             code: string;
