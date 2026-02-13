@@ -1,23 +1,6 @@
 import { Type } from 'class-transformer';
 import { IsArray, IsNumber, IsOptional, IsString, MaxLength, Min, ValidateNested } from 'class-validator';
-
-class UpdateBatchConsumptionDto {
-    @IsString()
-    materialBatchId: string;
-
-    @IsNumber()
-    @Min(0)
-    quantity: number;
-
-    @IsOptional()
-    @IsString()
-    unit?: string;
-
-    @IsOptional()
-    @IsString()
-    @MaxLength(200)
-    materialStorageLocation?: string;
-}
+import { CreateProductionBatchConsumptionInput } from './create-production-batch.dto';
 
 export class UpdateProductionBatchDto {
     @IsOptional()
@@ -47,12 +30,6 @@ export class UpdateProductionBatchDto {
     productionLocation?: string;
 
     @IsOptional()
-    @IsArray()
-    @ValidateNested({ each: true })
-    @Type(() => UpdateBatchConsumptionDto)
-    consumptions?: UpdateBatchConsumptionDto[];
-
-    @IsOptional()
     @IsString()
     @MaxLength(2000)
     qcNotes?: string;
@@ -61,4 +38,10 @@ export class UpdateProductionBatchDto {
     @IsString()
     @MaxLength(2000)
     notes?: string;
+
+    @IsOptional()
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => CreateProductionBatchConsumptionInput)
+    consumptions?: CreateProductionBatchConsumptionInput[];
 }

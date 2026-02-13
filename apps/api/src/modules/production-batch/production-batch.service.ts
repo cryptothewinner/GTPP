@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
 import { BatchStatus, Prisma } from '@prisma/client';
+import { PrismaService } from '../../prisma/prisma.service';
+import { CreateProductionBatchConsumptionInput } from './dto/create-production-batch.dto';
 
 interface FindAllParams {
     page: number;
@@ -32,6 +33,21 @@ export class ProductionBatchService {
         }
 
         return `${prefix}${String(seq).padStart(3, '0')}`;
+    }
+
+    private buildConsumptionCreateInputs(consumptions?: CreateProductionBatchConsumptionInput[]): Prisma.ProductionBatchConsumptionCreateWithoutProductionBatchInput[] {
+        if (!consumptions?.length) {
+            return [];
+        }
+
+        return consumptions.map((consumption) => ({
+            consumedQuantity: consumption.consumedQuantity,
+            unit: consumption.unit ?? 'Kg',
+            timestamp: consumption.timestamp ? new Date(consumption.timestamp) : new Date(),
+            materialStorageLocation: consumption.materialStorageLocation,
+            materialBatch: { connect: { id: consumption.materialBatchId } },
+            ...(consumption.recipeItemId ? { recipeItem: { connect: { id: consumption.recipeItemId } } } : {}),
+        }));
     }
 
     async findAll(params: FindAllParams) {
@@ -116,10 +132,10 @@ export class ProductionBatchService {
                 productionOrder: { include: { product: true, recipe: true } },
                 consumptions: {
                     include: {
-                        materialBatch: {
-                            include: { material: true },
-                        },
+                        recipeItem: { include: { material: true } },
+                        materialBatch: { include: { material: true } },
                     },
+                    orderBy: { timestamp: 'asc' },
                 },
             },
         });
@@ -138,25 +154,16 @@ export class ProductionBatchService {
 
     async create(dto: any) {
         const batchNumber = await this.generateBatchNumber();
-        const { consumptions, ...batchData } = dto;
-        const data: Prisma.ProductionBatchCreateInput = {
-            ...batchData,
-            batchNumber,
-            productionLocation: dto.productionLocation,
-            consumptions: consumptions?.length
-                ? {
-                    create: consumptions.map((item: any) => ({
-                        quantity: item.quantity,
-                        unit: item.unit,
-                        materialStorageLocation: item.materialStorageLocation,
-                        materialBatch: { connect: { id: item.materialBatchId } },
-                    })),
-                }
-                : undefined,
-        };
+        const { consumptions, ...rest } = dto;
+        const data: Prisma.ProductionBatchCreateInput = { ...rest, batchNumber };
 
         if (dto.manufacturingDate) data.manufacturingDate = new Date(dto.manufacturingDate);
         if (dto.expiryDate) data.expiryDate = new Date(dto.expiryDate);
+
+        const consumptionInputs = this.buildConsumptionCreateInputs(consumptions);
+        if (consumptionInputs.length) {
+            data.consumptions = { create: consumptionInputs };
+        }
 
         return this.prisma.productionBatch.create({
             data,
@@ -169,37 +176,31 @@ export class ProductionBatchService {
 
     async update(id: string, dto: any) {
         await this.findOne(id);
-        const { consumptions, ...batchData } = dto;
-        const data: Prisma.ProductionBatchUpdateInput = {
-            ...batchData,
-            productionLocation: dto.productionLocation,
-        };
+
+        const { consumptions, ...rest } = dto;
+        const data: Prisma.ProductionBatchUpdateInput = { ...rest };
+
         if (dto.manufacturingDate) data.manufacturingDate = new Date(dto.manufacturingDate);
         if (dto.expiryDate) data.expiryDate = new Date(dto.expiryDate);
         if (dto.status) data.status = dto.status as BatchStatus;
 
-        if (consumptions) {
-            data.consumptions = {
-                deleteMany: {},
-                create: consumptions.map((item: any) => ({
-                    quantity: item.quantity,
-                    unit: item.unit,
-                    materialStorageLocation: item.materialStorageLocation,
-                    materialBatch: { connect: { id: item.materialBatchId } },
-                })),
-            };
-        }
+        return this.prisma.$transaction(async (tx) => {
+            if (consumptions) {
+                await tx.productionBatchConsumption.deleteMany({ where: { productionBatchId: id } });
+                const consumptionInputs = this.buildConsumptionCreateInputs(consumptions);
+                if (consumptionInputs.length) {
+                    data.consumptions = { create: consumptionInputs };
+                }
+            }
 
-        return this.prisma.productionBatch.update({
-            where: { id },
-            data,
-            include: {
-                consumptions: {
-                    include: {
-                        materialBatch: { include: { material: true } },
-                    },
+            return tx.productionBatch.update({
+                where: { id },
+                data,
+                include: {
+                    productionOrder: { select: { id: true, orderNumber: true } },
+                    consumptions: true,
                 },
-            },
+            });
         });
     }
 

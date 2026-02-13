@@ -1,13 +1,17 @@
 import { Type } from 'class-transformer';
 import { IsArray, IsNumber, IsOptional, IsString, MaxLength, Min, ValidateNested } from 'class-validator';
 
-export class CreateBatchConsumptionDto {
+export class CreateProductionBatchConsumptionInput {
     @IsString()
     materialBatchId: string;
 
+    @IsOptional()
+    @IsString()
+    recipeItemId?: string;
+
     @IsNumber()
     @Min(0)
-    quantity: number;
+    consumedQuantity: number;
 
     @IsOptional()
     @IsString()
@@ -17,6 +21,10 @@ export class CreateBatchConsumptionDto {
     @IsString()
     @MaxLength(200)
     materialStorageLocation?: string;
+
+    @IsOptional()
+    @IsString()
+    timestamp?: string;
 }
 
 export class CreateProductionBatchDto {
@@ -45,13 +53,13 @@ export class CreateProductionBatchDto {
     productionLocation?: string;
 
     @IsOptional()
-    @IsArray()
-    @ValidateNested({ each: true })
-    @Type(() => CreateBatchConsumptionDto)
-    consumptions?: CreateBatchConsumptionDto[];
-
-    @IsOptional()
     @IsString()
     @MaxLength(2000)
     notes?: string;
+
+    @IsOptional()
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => CreateProductionBatchConsumptionInput)
+    consumptions?: CreateProductionBatchConsumptionInput[];
 }
