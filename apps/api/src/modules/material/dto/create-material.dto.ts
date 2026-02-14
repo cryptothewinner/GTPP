@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, IsEnum, IsNumber, Min } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsEnum, IsNumber, Min, IsBoolean } from 'class-validator';
 import { MaterialType } from '@prisma/client';
 
 export class CreateMaterialDto {
@@ -27,11 +27,53 @@ export class CreateMaterialDto {
     @IsOptional()
     minStockLevel?: number;
 
+    @IsNumber()
+    @Min(0)
+    @IsOptional()
+    maxStockLevel?: number;
+
+    @IsNumber()
+    @Min(0)
+    @IsOptional()
+    safetyStock?: number;
+
+    @IsBoolean()
+    @IsOptional()
+    qualityControl?: boolean;
+
+    @IsBoolean()
+    @IsOptional()
+    autoBatch?: boolean;
+
+    @IsBoolean()
+    @IsOptional()
+    orderApproval?: boolean;
+
+    @IsBoolean()
+    @IsOptional()
+    allowNegativeStock?: boolean;
+
     @IsString()
     @IsOptional()
     category?: string;
 
     @IsString()
     @IsOptional()
+    supplierId?: string;
+
+    @IsString()
+    @IsOptional()
     notes?: string;
+
+    @IsString()
+    @IsOptional()
+    casNumber?: string;
+
+    @IsNumber()
+    @IsOptional()
+    shelfLife?: number;
+
+    @IsString()
+    @IsOptional()
+    storageCondition?: string;
 }

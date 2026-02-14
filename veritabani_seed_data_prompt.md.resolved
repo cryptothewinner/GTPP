@@ -1,0 +1,303 @@
+# SepeNatural Veritabanı Analizi & Seed Data Dolum Prompt'u
+
+## Proje Bağlamı
+
+Proje: SepeNatural ERP — `c:\Users\PC\.gemini\antigravity\scratch\sepe4.6`
+Mevcut Seed: `apps/api/prisma/seed.ts` (654 satır)
+ORM: Prisma + PostgreSQL (`sepe_natural` database)
+
+---
+
+## MEVCUT VERİTABANI DURUMU
+
+| Tablo | Model | Mevcut Kayıt | Durum |
+|-------|-------|:------------:|-------|
+| `users` | User | 1 | ✅ Yeterli (admin) |
+| `stocks` | Stock | 1000 | ✅ Dolu (genel envanter) |
+| `suppliers` | Supplier | 5 | ⚠️ Artırılmalı (8-10 olmalı) |
+| `materials` | Material | 18 | ⚠️ Artırılmalı (25-30 olmalı) |
+| `material_batches` | MaterialBatch | 20 | ⚠️ Artırılmalı (her malzemeye 2-3 batch) |
+| `products` | Product | 8 | ✅ Yeterli ama stokları 0 ❌ |
+| `recipes` | Recipe | 3 | ❌ Eksik — 8 ürünün sadece 3'ünün reçetesi var |
+| `recipe_items` | RecipeItem | 9 | ❌ Eksik — yeni reçetelerle artacak |
+| `production_orders` | ProductionOrder | 8 | ✅ Yeterli |
+| `production_batches` | ProductionBatch | 10 | ✅ Yeterli |
+| `stock_movements` | StockMovement | 1 | ❌ KRİTİK — sadece 1 kayıt var |
+| `production_batch_consumptions` | ProductionBatchConsumption | 19 | ✅ Yeterli |
+| `audit_logs` | AuditLog | 0 | 🔷 Normal (otomatik dolacak) |
+| `entity_metadata` | EntityMetadata | 6 | ✅ Yeterli |
+| `field_metadata` | FieldMetadata | 73 | ✅ Yeterli |
+| `event_outbox` | EventOutbox | 0 | 🔷 Normal (otomatik dolacak) |
+
+---
+
+## MEVCUT VERİLER (Örnek)
+
+### Malzemeler (18 adet)
+```
+HM-001 | Vitamin C (Askorbik Asit)        | RAW_MATERIAL | 250 Kg
+HM-002 | Omega-3 Balık Yağı Konsantre     | RAW_MATERIAL | 180 Lt
+HM-003 | D3 Vitamini (Kolekalsiferol)     | RAW_MATERIAL | 15 Kg
+HM-004 | Çinko Glukonat                   | RAW_MATERIAL | 120 Kg
+HM-005 | Magnezyum Sitrat                 | RAW_MATERIAL | 200 Kg
+HM-006 | Probiyotik Karışım (50B CFU)     | RAW_MATERIAL | 8 Kg
+HM-007 | Kolajen Peptit (Balık Kaynaklı)  | RAW_MATERIAL | 45 Kg
+HM-008 | Biotin (B7 Vitamini)             | RAW_MATERIAL | 3 Kg
+HM-009 | Demir Bisglisinat                | RAW_MATERIAL | 65 Kg
+HM-010 | Koenzim Q10 (Ubikinon)           | RAW_MATERIAL | 2.5 Kg
+HM-011 | Kurkumin Ekstresi (%95)          | RAW_MATERIAL | 18 Kg
+AM-001 | Jelatin Kapsül (Boş, Size 0)     | PACKAGING    | 500000 Adet
+AM-002 | Cam Şişe 60ml (Damlalıklı)       | PACKAGING    | 15000 Adet
+AM-003 | Blister Ambalaj (10'lu)           | PACKAGING    | 80000 Adet
+AM-004 | Etiket ve Kutu Seti              | PACKAGING    | 25000 Adet
++ 3 ek malzeme (HM-012 → HM-014 arası ya da ek PACKAGING)
+```
+
+### Ürünler (8 adet — hepsinin stoku 0 ❌)
+```
+PRD-001 | SepeNatural Vitamin C 1000mg       | 189.90 ₺ | REC-001 var ✅
+PRD-002 | SepeNatural Omega-3 Balık Yağı     | 249.90 ₺ | REC-002 var ✅
+PRD-003 | SepeNatural D3+K2 Vitamin          | 159.90 ₺ | REC-003 var ✅
+PRD-004 | SepeNatural Multivitamin           | 329.90 ₺ | Reçete YOK ❌
+PRD-005 | SepeNatural Probiyotik             | 279.90 ₺ | Reçete YOK ❌
+PRD-006 | SepeNatural Kolajen Peptit         | 399.90 ₺ | Reçete YOK ❌
+PRD-007 | SepeNatural Magnezyum Sitrat       | 149.90 ₺ | Reçete YOK ❌
+PRD-008 | SepeNatural CoQ10 200mg            | 449.90 ₺ | Reçete YOK ❌
+```
+
+### Tedarikçiler (5 adet)
+```
+TED-001 | Vitamin Dünyası Kimya A.Ş.        | İstanbul  | 7 gün
+TED-002 | Doğal Hammadde Ltd. Şti.           | İstanbul  | 14 gün
+TED-003 | BioTech İthalat İhracat A.Ş.      | Ankara    | 21 gün
+TED-004 | Deniz Balık Yağları San. Tic.      | İzmir     | 10 gün
+TED-005 | Ambalaj Plus Paketleme A.Ş.       | Bursa     | 5 gün
+```
+
+### StockMovement (sadece 1 kayıt ❌)
+Neredeyse tamamen boş — **en kritik eksik**.
+
+---
+
+## YAPILACAK İŞLER — Seed Data Genişletme
+
+Mevcut `seed.ts` dosyasını güncelleyerek çalıştır VEYA yeni bir `seed-expand.ts` dosyası oluşturup çalıştır. **Mevcut verileri silme, üzerine ekle (upsert/skipDuplicates kullan).**
+
+### GÖREV 1: Eksik 5 Ürün İçin Reçete Oluştur
+
+Her reçetede 3-5 malzeme satırı (RecipeItem) olsun. Mevcut malzemeleri (HM-001 ~ HM-011, AM-001 ~ AM-004) kullan.
+
+| Reçete | Ürün | Malzemeler |
+|--------|------|-----------|
+| **REC-004** Multivitamin Tablet | PRD-004 | HM-001 (Vitamin C), HM-003 (D3), HM-004 (Cinko), HM-005 (Magnezyum), HM-009 (Demir), AM-003 (Blister), AM-004 (Kutu) |
+| **REC-005** Probiyotik Kapsül | PRD-005 | HM-006 (Probiyotik), AM-001 (Kapsül), AM-004 (Kutu) |
+| **REC-006** Kolajen 30 Saşe | PRD-006 | HM-007 (Kolajen), HM-001 (Vitamin C — katkı), AM-004 (Kutu) |
+| **REC-007** Magnezyum Sitrat Tablet | PRD-007 | HM-005 (Magnezyum), AM-003 (Blister), AM-004 (Kutu) |
+| **REC-008** CoQ10 200mg Kapsül | PRD-008 | HM-010 (CoQ10), AM-001 (Kapsül), AM-004 (Kutu) |
+
+Her RecipeItem'da:
+- `quantity`: Gerçekçi miktar (batchSize'a göre hesapla)
+- `unit`: Malzemenin unitOfMeasure'ı ile uyumlu
+- `wastagePercent`: %1-5 arası
+- `unitCost`: Malzemenin unitPrice'ı
+- `totalCost`: `quantity × unitPrice × (1 + wastagePercent/100)`
+- Recipe'nin `totalCost`: Tüm item'ların totalCost toplamı
+- `batchSize`: Ürünün batchSize değerini kullan
+- `batchUnit`: "Adet"
+- `instructions`: Türkçe üretim talimatları (2-3 cümle)
+
+---
+
+### GÖREV 2: Malzeme Partileri Artır (MaterialBatch)
+
+Her malzemeye (HM-001 ~ HM-011) en az 2-3 parti ekle. Toplam ~35-40 batch olmalı.
+
+Her batch için:
+- `batchNumber`: `MB-{materialCode}-{YYYYMMDD}-{sıra}` formatı (Örn: `MB-HM004-20260120-01`)
+- `supplierLotNo`: Tedarikçiye göre format
+- `manufacturingDate`: Son 3 ay içinde tarihler
+- `expiryDate`: Malzemenin shelfLife'ına göre hesapla
+- `quantity`: Gerçekçi miktar
+- `remainingQuantity`: Kullanıma göre azaltılmış (ama >0)
+- `status`: Dağılım → %60 AVAILABLE, %15 RESERVED, %10 QUARANTINE, %10 CONSUMED, %5 EXPIRED
+- `storageLocation`: "Hammadde Depo A / Raf 01" ~ "Raf 20" arası
+
+---
+
+### GÖREV 3: Ürün Stoklarını Doldur (Product.currentStock)
+
+Tamamlanmış üretim emirleri var → ürünlerin stoğu hesaplanmalı:
+- PRD-001 (Vitamin C): 5000 (UE-20260201-001 tamamlandı) → currentStock = 5000
+- PRD-002 (Omega-3): 3000 (UE-20260203-001 tamamlandı) → currentStock = 3000
+- PRD-003 (D3+K2): 1000 (kısmen üretimde) → currentStock = 1000
+- PRD-004 ~ PRD-008: Yeni üretim emirleri/partiler de oluşturulabilir → her birine 500-2000 arası stok
+
+Basit: `prisma.product.update({ where: { code: 'PRD-001' }, data: { currentStock: 5000 } })`
+
+---
+
+### GÖREV 4: Stok Hareketleri Doldur (StockMovement) — EN KRİTİK
+
+Gerçekçi bir stok hareket geçmişi oluştur. Minimum **30 kayıt**, ideal **50+ kayıt**.
+
+#### Senaryo Akışları:
+
+**A. Hammadde Girişleri (INBOUND) — 10 kayıt**
+Tedarikçilerden malzeme alımları. Son 2 ay içinde tarihleri dağıt.
+```
+SM-20260115-001 | INBOUND | HM-001 | 120 Kg  | ₺450/Kg  | Toplam: ₺54,000
+SM-20260110-001 | INBOUND | HM-002 | 80 Lt   | ₺890/Lt  | Toplam: ₺71,200
+SM-20260201-001 | INBOUND | HM-003 | 10 Kg   | ₺2200/Kg | Toplam: ₺22,000
+SM-20260120-001 | INBOUND | HM-004 | 50 Kg   | ₺320/Kg  | Toplam: ₺16,000
+SM-20260118-001 | INBOUND | HM-005 | 100 Kg  | ₺280/Kg  | Toplam: ₺28,000
+SM-20260205-001 | INBOUND | HM-006 | 5 Kg    | ₺4500/Kg | Toplam: ₺22,500
+SM-20260122-001 | INBOUND | HM-007 | 25 Kg   | ₺1800/Kg | Toplam: ₺45,000
+SM-20260125-001 | INBOUND | AM-001 | 200000  | ₺0.08    | Toplam: ₺16,000
+SM-20260128-001 | INBOUND | AM-002 | 8000    | ₺2.50    | Toplam: ₺20,000
+SM-20260130-001 | INBOUND | AM-003 | 50000   | ₺0.45    | Toplam: ₺22,500
+```
+
+**B. Üretime Çıkışlar (PRODUCTION_OUT) — 8 kayıt**
+Üretim emirleri için malzeme tüketimleri.
+```
+SM-20260201-002 | PRODUCTION_OUT | HM-001 | 5.5 Kg  | ref: UE-20260201-001
+SM-20260201-003 | PRODUCTION_OUT | AM-003 | 500     | ref: UE-20260201-001
+SM-20260201-004 | PRODUCTION_OUT | AM-004 | 5000    | ref: UE-20260201-001
+SM-20260203-002 | PRODUCTION_OUT | HM-002 | 4.2 Lt  | ref: UE-20260203-001
+SM-20260203-003 | PRODUCTION_OUT | AM-001 | 3000    | ref: UE-20260203-001
+SM-20260205-002 | PRODUCTION_OUT | HM-003 | 0.12 Kg | ref: UE-20260205-001
+SM-20260208-002 | PRODUCTION_OUT | HM-001 | 3.3 Kg  | ref: UE-20260208-001
+SM-20260208-003 | PRODUCTION_OUT | AM-001 | 3000    | ref: UE-20260208-001
+```
+
+**C. Üretimden Girişler (PRODUCTION_IN) — 5 kayıt**
+Tamamlanan üretim partilerinden ürün girişi.
+```
+SM-20260204-001 | PRODUCTION_IN | PRD-001 (product) | 5000 Adet | ref: UE-20260201-001
+SM-20260206-001 | PRODUCTION_IN | PRD-002 (product) | 3000 Adet | ref: UE-20260203-001
+SM-20260210-001 | PRODUCTION_IN | PRD-003 (product) | 1000 Adet | ref: UE-20260205-001
+```
+
+**D. Satış Çıkışları (OUTBOUND) — 5 kayıt**
+```
+SM-20260207-001 | OUTBOUND | PRD-001 (product) | 500 Adet  | ₺189.90/Adet
+SM-20260209-001 | OUTBOUND | PRD-002 (product) | 200 Adet  | ₺249.90/Adet
+SM-20260211-001 | OUTBOUND | PRD-001 (product) | 1000 Adet | ₺189.90/Adet
+SM-20260212-001 | OUTBOUND | PRD-002 (product) | 500 Adet  | ₺249.90/Adet
+SM-20260213-001 | OUTBOUND | PRD-003 (product) | 300 Adet  | ₺159.90/Adet
+```
+
+**E. Manuel Düzeltmeler (ADJUSTMENT) — 3 kayıt**
+```
+SM-20260210-002 | ADJUSTMENT | HM-008 | +0.5 Kg  | "Sayım sonrası düzeltme"
+SM-20260212-002 | ADJUSTMENT | AM-004 | -500      | "Hasarlı ambalaj"
+SM-20260213-002 | ADJUSTMENT | HM-011 | +2 Kg    | "Tedarikçiden ek teslimat"
+```
+
+**F. Fire/Hurda (WASTE) — 2 kayıt**
+```
+SM-20260206-002 | WASTE | HM-002 | 0.5 Lt  | "Sıcaklık sapması, ürün bozuldu"
+SM-20260211-002 | WASTE | AM-003 | 200     | "Baskı hatası, kullanılamaz"
+```
+
+**G. İadeler (RETURN) — 2 kayıt**
+```
+SM-20260209-002 | RETURN | PRD-001 (product) | 50 Adet | "Müşteri iadesi - ambalaj hasarı"
+SM-20260213-003 | RETURN | HM-009            | 5 Kg    | "Tedarikçiye kalite iadesi"
+```
+
+Her StockMovement kaydında:
+- `movementNumber`: Unique, `SM-YYYYMMDD-NNN` formatı
+- `type`: StockMovementType enum
+- `materialId` veya `productId`: İlgili kayıttan ID çek
+- `materialBatchId`: Eğer malzeme hareketi ise, ilgili batch ID (opsiyonel)
+- `quantity`: Miktar (Decimal)
+- `unit`: Birim
+- `previousStock`: Hareket öncesi stok
+- `newStock`: Hareket sonrası stok
+- `unitPrice`: Birim fiyat
+- `totalValue`: quantity × unitPrice
+- `referenceType`: "PRODUCTION_ORDER", "PURCHASE", "SALE", "MANUAL"
+- `referenceId`: İlgili sipariş/emir numarası
+- `description`: Türkçe açıklama
+- `performedBy`: "Ahmet Usta", "Mehmet Depo", "Sistem", "Zeynep Teknisyen" vb.
+- `createdAt`: Gerçekçi tarih/saat
+
+---
+
+### GÖREV 5: 3 Yeni Tedarikçi + Yeni Malzemeler
+
+```
+TED-006 | Anadolu Bitkisel Özler A.Ş.  | Konya    | 12 gün | Bitkisel ekstreler
+TED-007 | Global Minerals Trading GmbH  | Almanya  | 30 gün | İthal mineraller
+TED-008 | Akdeniz Ambalaj San. Tic.     | Antalya  | 7 gün  | Özel ambalaj
+```
+
+Yeni malzemeler (mevcut HM-012 ~ HM-018, AM-005 ~ AM-006):
+```
+HM-012 | K2 Vitamini (MK-7)             | RAW_MATERIAL | TED-003 | ₺8500/Kg | 1 Kg
+HM-013 | Selenyum (Seleno-Metiyonin)     | RAW_MATERIAL | TED-007 | ₺9200/Kg | 0.5 Kg
+HM-014 | Lutein (Kadife Çiçeği Ekst.)    | RAW_MATERIAL | TED-006 | ₺6800/Kg | 2 Kg
+HM-015 | Folik Asit (B9 Vitamini)        | RAW_MATERIAL | TED-001 | ₺1200/Kg | 10 Kg
+HM-016 | B12 Vitamini (Metilkobalamin)   | RAW_MATERIAL | TED-003 | ₺15000/Kg| 0.3 Kg
+HM-017 | Zerdeçal Ekstresi               | RAW_MATERIAL | TED-006 | ₺2800/Kg | 12 Kg
+HM-018 | Karabiber Ekstresi (Piperin)    | RAW_MATERIAL | TED-006 | ₺3500/Kg | 5 Kg
+AM-005 | Saşe Ambalaj (5g)               | PACKAGING    | TED-008 | ₺0.35    | 40000
+AM-006 | HDPE Şişe 90 Kapsül             | PACKAGING    | TED-008 | ₺1.80    | 10000
+```
+
+---
+
+### GÖREV 6: Yeni Malzeme Partileri (Eklenen Malzemeler İçin)
+
+Eklenen her malzeme için en az 1 parti oluştur.
+
+---
+
+### GÖREV 7: Ek Üretim Emirleri (Yeni Reçeteler İçin)
+
+Yeni reçeteleri (REC-004 ~ REC-008) kullanan 5 üretim emri:
+```
+UE-20260215-001 | PRD-004 | REC-004 | 4000 Adet | PLANNED   | Şubat sonu üretim
+UE-20260216-001 | PRD-005 | REC-005 | 2000 Adet | DRAFT     | Mart planlaması
+UE-20260217-001 | PRD-006 | REC-006 | 1500 Adet | PLANNED   | Kolajen serisi
+UE-20260218-001 | PRD-007 | REC-007 | 5000 Adet | PLANNED   | Magnezyum ilk batch
+UE-20260219-001 | PRD-008 | REC-008 | 1000 Adet | DRAFT     | CoQ10 pilot üretim
+```
+
+---
+
+## TEKNİK KURALLAR
+
+1. **Dosya:** `apps/api/prisma/seed-expand.ts` olarak AYRI dosya oluştur
+2. **Import:** `import { PrismaClient, MaterialType, StockMovementType, ProductionOrderStatus, MaterialBatchStatus } from '@prisma/client';`
+3. **Mevcut veriyi silme:** `createMany({ skipDuplicates: true })` veya `upsert` kullan
+4. **ID referansları:** Her zaman `prisma.X.findFirst({ where: { code: 'XXX' } })` ile dinamik ID çek
+5. **Transaction:** StockMovement oluştururken material/product stok güncelleme gerektiren işlemlerde transaction kullan
+6. **Çalıştırma:**
+   ```bash
+   cd apps/api
+   npx ts-node prisma/seed-expand.ts
+   ```
+7. **Sıralama:** Supplier → Material → MaterialBatch → Recipe → RecipeItem → ProductionOrder → StockMovement → Product stok güncelle
+8. **Decimal:** Prisma Decimal alanları için sayısal değer kullan (string değil)
+9. **Tarih:** `new Date('2026-02-14T08:30:00')` formatı kullan, tarihler Ocak-Şubat 2026 aralığında
+10. **previousStock/newStock hesaplama:** Her stok hareketi oluşturmadan önce mevcut stoğu oku, sonra güncelle
+
+---
+
+## SONUÇ HEDEFİ
+
+Seed çalıştıktan sonra beklenen tablo durumları:
+
+| Tablo | Hedef Kayıt |
+|-------|:-----------:|
+| Supplier | 8 |
+| Material | 27+ |
+| MaterialBatch | 45+ |
+| Product | 8 (stoklu) |
+| Recipe | 8 |
+| RecipeItem | 30+ |
+| ProductionOrder | 13+ |
+| StockMovement | 35+ |
+| Diğerleri | Mevcut değer korunacak |

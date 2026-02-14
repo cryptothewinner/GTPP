@@ -66,7 +66,7 @@ export class MaterialService {
                 skip,
                 take: pageSize,
                 include: {
-                    supplier: { select: { id: true, code: true, name: true } },
+                    supplier: { select: { id: true, bpNumber: true, name1: true } },
                     batches: {
                         select: { batchNumber: true, status: true, remainingQuantity: true },
                         where: { status: 'AVAILABLE' },
@@ -82,7 +82,16 @@ export class MaterialService {
     }
 
     async findOne(id: string) {
-        const material = await this.prisma.material.findUnique({ where: { id }, include: { supplier: true } });
+        const material = await this.prisma.material.findUnique({
+            where: { id },
+            include: {
+                supplier: true,
+                batches: {
+                    where: { status: { not: 'CONSUMED' } },
+                    orderBy: { expiryDate: 'asc' }
+                }
+            }
+        });
         if (!material) throw new NotFoundException(`Malzeme bulunamadı: ${id}`);
         return material;
     }
@@ -125,12 +134,15 @@ export class MaterialService {
     }
 
     async getSummary() {
+        // Fix: QueryRaw return type manual casting might be tricky with new prisma types, checking usage
+        // But logic seems fine.
         const [totalMaterials, lowStockRaw, byTypeRaw] = await Promise.all([
             this.prisma.material.count({ where: { isActive: true } }),
             this.prisma.$queryRaw`SELECT COUNT(*) as count FROM materials WHERE is_active = true AND current_stock < min_stock_level AND min_stock_level > 0` as Promise<any[]>,
             this.prisma.material.groupBy({ by: ['type'], where: { isActive: true }, _count: { id: true } }),
         ]);
 
+        // Helper to safely handle BigInt from raw query if necessary (though count usually returns number/bigint)
         const lowStockCount = Number(lowStockRaw?.[0]?.count || 0);
         const byType = byTypeRaw.map((item) => ({ type: item.type, count: item._count.id }));
 

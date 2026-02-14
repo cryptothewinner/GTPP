@@ -9,6 +9,8 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ─── SYSTEM & AUTH ────────────────────────────────────────────────
+
 model User {
   id           String   @id @default(uuid())
   email        String   @unique
@@ -16,8 +18,8 @@ model User {
   fullName     String   @map("full_name")
   role         UserRole @default(VIEWER)
   isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @db.Timestamptz(3)
 
   @@map("users")
 }
@@ -28,6 +30,719 @@ enum UserRole {
   OPERATOR
   VIEWER
 }
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id")
+  action     String // CREATE, UPDATE, DELETE
+  userId     String?  @map("user_id")
+  oldData    Json?    @map("old_data")
+  newData    Json?    @map("new_data")
+  changes    Json?
+  metadata   Json?
+  durationMs Int?     @map("duration_ms")
+  ipAddress  String?  @map("ip_address")
+  endpoint   String?
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@map("audit_logs")
+}
+
+model EventOutbox {
+  id            String   @id @default(cuid())
+  eventType     String   @map("event_type")
+  aggregateType String?  @map("aggregate_type")
+  aggregateId   String?  @map("aggregate_id")
+  payload       Json
+  status        String   @default("PENDING")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([status])
+  @@map("event_outbox")
+}
+
+model EntityMetadata {
+  id          String          @id @default(cuid())
+  slug        String          @unique
+  displayName String          @map("display_name")
+  description String?
+  tableName   String          @map("table_name")
+  version     Int             @default(1)
+  isActive    Boolean         @default(true) @map("is_active")
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+  fields      FieldMetadata[]
+
+  @@map("entity_metadata")
+}
+
+model FieldMetadata {
+  id           String   @id @default(cuid())
+  entityId     String   @map("entity_id")
+  name         String
+  label        String
+  fieldType    String   @map("field_type")
+  placeholder  String?
+  defaultValue Json?    @map("default_value")
+  required     Boolean  @default(false)
+  min          Decimal? @db.Decimal(18, 4)
+  max          Decimal? @db.Decimal(18, 4)
+  minLength    Int?     @map("min_length")
+  maxLength    Int?     @map("max_length")
+  pattern      String?
+  options      Json?
+  group        String?
+  order        Int      @default(0)
+  colSpan      Int?     @default(1) @map("col_span")
+  visible      Boolean  @default(true)
+  disabled     Boolean  @default(false)
+  helpText     String?  @map("help_text")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  entity EntityMetadata @relation(fields: [entityId], references: [id], onDelete: Cascade)
+
+  @@unique([entityId, name])
+  @@map("field_metadata")
+}
+
+
+// ─── ENTERPRISE STRUCTURE (KURUMSAL YAPI) ─────────────────────
+
+model CompanyCode {
+  id         String  @id @default(cuid())
+  code       String  @unique // Örn: 1000
+  name       String // Örn: Sepe Natural A.Ş.
+  currency   String  @default("TRY")
+  chartOfAcc String? @map("chart_of_accounts")
+
+  plants         Plant[]
+  salesOrgs      SalesOrg[]
+  purchOrgs      PurchasingOrg[]
+  purchaseOrders PurchaseOrder[]
+  glAccounts     GLAccount[]
+  journalEntries JournalEntry[]
+  costCenters    CostCenter[]
+  profitCenters  ProfitCenter[]
+
+  @@map("company_codes")
+}
+
+model Plant {
+  id            String  @id @default(cuid())
+  companyCodeId String  @map("company_code_id")
+  code          String  // Unique constraint moved to block level
+  name          String // Örn: İstanbul Fabrika
+  address       String?
+
+  companyCode CompanyCode @relation(fields: [companyCodeId], references: [id])
+
+  storageLocs     StorageLocation[]
+  outboundItems   OutboundDeliveryItem[]
+  workCenters     WorkCenter[]
+  plantSteps      PlantStep[]
+  poItems         PurchaseOrderItem[]
+  movements       MaterialDocumentItem[]
+  salesOrderItems SalesOrderItem[]
+
+  @@unique([companyCodeId, code])
+  @@map("plants")
+}
+
+model StorageLocation {
+  id      String @id @default(cuid())
+  plantId String @map("plant_id")
+  code    String // Örn: 0001
+  name    String // Örn: Hammadde Depo
+
+  plant     Plant                  @relation(fields: [plantId], references: [id])
+  poItems   PurchaseOrderItem[]    @relation("POItemStorageLoc")
+  movements MaterialDocumentItem[] @relation("MDItemStorageLoc")
+
+  @@unique([plantId, code])
+  @@map("storage_locations")
+}
+
+// ─── COST ACCOUNTING (MALİYET MUHASEBESİ) ─────────────────────
+
+model CostCenter {
+  id            String @id @default(cuid())
+  companyCodeId String @map("company_code_id")
+  code          String
+  name          String // Örn: Üretim Hattı 1 Gider Yeri
+
+  companyCode  CompanyCode        @relation(fields: [companyCodeId], references: [id])
+  workCenters  WorkCenter[]
+  journalItems JournalEntryItem[]
+
+  @@unique([companyCodeId, code])
+  @@map("cost_centers")
+}
+
+model ProfitCenter {
+  id            String @id @default(cuid())
+  companyCodeId String @map("company_code_id")
+  code          String @unique
+  name          String
+
+  companyCode  CompanyCode        @relation(fields: [companyCodeId], references: [id])
+  journalItems JournalEntryItem[]
+
+  @@map("profit_centers")
+}
+
+// ─── SALES & DISTRIBUTION (SATIŞ DAĞITIM) ─────────────────────
+
+model DistributionChannel {
+  id   String @id @default(cuid())
+  code String @unique // Örn: 10
+  name String // Örn: Toptan
+
+  salesAreas SalesArea[]
+
+  @@map("dist_channels")
+}
+
+model Division {
+  id   String @id @default(cuid())
+  code String @unique // Örn: 01
+  name String // Örn: İlaç
+
+  salesAreas SalesArea[]
+
+  @@map("divisions")
+}
+
+// Sales Area: Satış Org + Dağıtım Kanalı + Bölüm Kombinasyonu
+model SalesArea {
+  id            String @id @default(cuid())
+  salesOrgId    String @map("sales_org_id")
+  distChannelId String @map("dist_channel_id")
+  divisionId    String @map("division_id")
+
+  salesOrg    SalesOrg            @relation(fields: [salesOrgId], references: [id])
+  distChannel DistributionChannel @relation(fields: [distChannelId], references: [id])
+  division    Division            @relation(fields: [divisionId], references: [id])
+
+  @@unique([salesOrgId, distChannelId, divisionId])
+  @@map("sales_areas")
+}
+
+// ─── MATERIALS MANAGEMENT (SATINALMA) ─────────────────────────
+
+model PurchasingOrg {
+  id            String  @id @default(cuid())
+  companyCodeId String? @map("company_code_id") // Opsiyonel: Global olabilir
+  code          String  @unique // Örn: PO01
+  name          String
+
+  companyCode    CompanyCode?    @relation(fields: [companyCodeId], references: [id])
+  purchaseOrders PurchaseOrder[]
+
+  @@map("purchasing_orgs")
+}
+
+model PurchasingGroup {
+  id   String @id @default(cuid())
+  code String @unique // Örn: MP1
+  name String // Örn: Hammadde Alıcı Grubu
+
+  purchaseOrders PurchaseOrder[]
+
+  @@map("purchasing_groups")
+}
+
+// ─── PURCHASING DOCUMENTS (SATIN ALMA BELGELERİ) ────────────────
+
+enum PRStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  CONVERTED_TO_PO
+  CLOSED
+  CANCELLED
+}
+
+model PurchaseRequisition {
+  id          String   @id @default(cuid())
+  prNumber    String   @unique @map("pr_number") // PR-2024-0001
+  requestDate DateTime @default(now()) @map("request_date")
+  status      PRStatus @default(DRAFT)
+  requestedBy String?  @map("requested_by")
+  notes       String?
+
+  items PurchaseRequisitionItem[]
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("purchase_requisitions")
+}
+
+model PurchaseRequisitionItem {
+  id           String    @id @default(cuid())
+  prId         String    @map("pr_id")
+  materialId   String?   @map("material_id") // Malzeme veya hizmet
+  materialName String    @map("material_name") // Serbest metin de olabilir
+  quantity     Decimal   @db.Decimal(18, 4)
+  unit         String
+  deliveryDate DateTime? @map("delivery_date")
+  status       PRStatus  @default(DRAFT)
+
+  purchaseRequisition PurchaseRequisition @relation(fields: [prId], references: [id], onDelete: Cascade)
+  material            Material?           @relation(fields: [materialId], references: [id])
+
+  @@map("purchase_requisition_items")
+}
+
+enum POStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  SENT
+  PARTIALLY_RECEIVED
+  COMPLETED
+  CANCELLED
+}
+
+model PurchaseOrder {
+  id            String   @id @default(cuid())
+  poNumber      String   @unique @map("po_number") // PO-2024-0001
+  supplierId    String   @map("supplier_id")
+  companyCodeId String   @map("company_code_id")
+  purchOrgId    String   @map("purch_org_id")
+  purchGroupId  String?  @map("purch_group_id")
+  documentDate  DateTime @default(now()) @map("document_date")
+  status        POStatus @default(DRAFT)
+  currency      String   @default("TRY")
+  paymentTerm   String?  @map("payment_term")
+  incoterms     String?
+  notes         String?
+
+  supplier        BusinessPartner  @relation(fields: [supplierId], references: [id])
+  companyCode     CompanyCode      @relation(fields: [companyCodeId], references: [id])
+  purchasingOrg   PurchasingOrg    @relation(fields: [purchOrgId], references: [id])
+  purchasingGroup PurchasingGroup? @relation(fields: [purchGroupId], references: [id])
+
+  items             PurchaseOrderItem[]
+  inboundDeliveries MaterialDocument[] // Migo 101 referansı
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderItem {
+  id           String    @id @default(cuid())
+  poId         String    @map("po_id")
+  materialId   String    @map("material_id")
+  quantity     Decimal   @db.Decimal(18, 4)
+  unit         String
+  netPrice     Decimal   @map("net_price") @db.Decimal(18, 4)
+  taxRate      Decimal   @default(20) @map("tax_rate") @db.Decimal(5, 2)
+  deliveryDate DateTime? @map("delivery_date")
+  plantId      String    @map("plant_id")
+  storageLocId String?   @map("storage_loc_id")
+
+  receivedQuantity Decimal @default(0) @map("received_quantity") @db.Decimal(18, 4)
+  isOpen           Boolean @default(true) @map("is_open")
+
+  purchaseOrder   PurchaseOrder    @relation(fields: [poId], references: [id], onDelete: Cascade)
+  material        Material         @relation(fields: [materialId], references: [id])
+  plant           Plant            @relation(fields: [plantId], references: [id])
+  storageLocation StorageLocation? @relation("POItemStorageLoc", fields: [storageLocId], references: [id])
+
+  @@map("purchase_order_items")
+}
+
+// ─── INVENTORY MOVEMENT (STOK HAREKETLERİ) ──────────────────────
+
+enum MovementType {
+  GR_PURCHASE_ORDER // @map("101") // Satınalma Mal Girişi
+  GI_FOR_ORDER // @map("261") // Üretime Mal Çıkışı
+  GR_FOR_ORDER // @map("101_PROD") // Üretimden Mal Girişi
+  GI_COST_CENTER // @map("201") // Masraf Yerine Çıkış
+  TRANSFER_POSTING // @map("311") // Depolar Arası Transfer
+  INITIAL_STOCK_ENTRY // @map("561") // Açılış Sayımı
+  PHYSICAL_INVENTORY // @map("701") // Sayım Farkı Girişi
+  GI_SALES_ORDER // @map("601") // Satış Siparişi Mal Çıkışı
+}
+
+model MaterialDocument {
+  id           String       @id @default(cuid())
+  docNumber    String       @unique @map("doc_number") // M-2024-100001
+  year         Int
+  postingDate  DateTime     @map("posting_date")
+  documentDate DateTime     @map("document_date")
+  movementType MovementType @map("movement_type")
+  reference    String? // İrsaliye No vb.
+  headerText   String?      @map("header_text")
+
+  purchaseOrderId String? @map("purchase_order_id") // Eğer satınalma ise
+
+  purchaseOrder PurchaseOrder?         @relation(fields: [purchaseOrderId], references: [id])
+  items         MaterialDocumentItem[]
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@map("material_documents")
+}
+
+model MaterialDocumentItem {
+  id            String  @id @default(cuid())
+  materialDocId String  @map("material_doc_id")
+  materialId    String  @map("material_id")
+  plantId       String  @map("plant_id")
+  storageLocId  String? @map("storage_loc_id")
+  batchNumber   String? @map("batch_number")
+
+  quantity Decimal  @db.Decimal(18, 4)
+  unit     String
+  amountLC Decimal? @map("amount_lc") @db.Decimal(18, 2) // Yerel Para Birimi Tutarı (Stock Value)
+
+  debitCredit String @map("debit_credit") // S: Debit, H: Credit (Borç/Alacak)
+
+  materialDocument MaterialDocument @relation(fields: [materialDocId], references: [id], onDelete: Cascade)
+  material         Material         @relation(fields: [materialId], references: [id])
+  plant            Plant            @relation(fields: [plantId], references: [id])
+  storageLocation  StorageLocation? @relation("MDItemStorageLoc", fields: [storageLocId], references: [id])
+
+  @@map("material_document_items")
+}
+
+// ─── BUSINESS PARTNER (MÜŞTERİ & TEDARİKÇİ) ───────────────────
+
+enum BPCategory {
+  ORGANIZATION
+  PERSON
+  GROUP
+}
+
+enum BPRole {
+  CUSTOMER
+  SUPPLIER
+  EMPLOYEE
+  CONTACT
+  COMPETITOR
+  OTHER
+}
+
+model BusinessPartner {
+  id       String     @id @default(cuid())
+  bpNumber String     @unique @map("bp_number")
+  category BPCategory @default(ORGANIZATION)
+
+  // Temel Kimlik
+  name1       String
+  name2       String?
+  searchTerm1 String? @map("search_term_1")
+  searchTerm2 String? @map("search_term_2")
+
+  // Yasal
+  taxOffice      String? @map("tax_office")
+  taxNumber      String? @map("tax_number")
+  identityNumber String? @map("identity_number")
+  vatExempt      Boolean @default(false) @map("vat_exempt")
+  industry       String?
+  legalForm      String? @map("legal_form")
+
+  // Genel
+  groupCode String? @map("group_code")
+  currency  String  @default("TRY")
+  isActive  Boolean @default(true) @map("is_active")
+  isBlocked Boolean @default(false) @map("is_blocked")
+
+  // İlişkiler
+  roles     BPRole[]
+  addresses BPAddress[]
+  contacts  BPContact[]
+  banks     BPBankDetail[]
+
+  // Detaylar
+  customerDetails CustomerDetails?
+  supplierDetails SupplierDetails?
+
+  // Modül İlişkileri
+  activities         CustomerActivity[]
+  materials          Material[]
+  purchaseOrders     PurchaseOrder[]
+  salesQuotations    SalesQuotation[]
+  salesOrders        SalesOrder[]
+  outboundDeliveries OutboundDelivery[]
+  invoices           Invoice[]
+
+  // Customer 360
+  notes            CustomerNote[]
+  partnerFunctions PartnerFunction[] @relation("SourceBP")
+  partnerOf        PartnerFunction[] @relation("TargetBP")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("business_partners")
+}
+
+enum AddressType {
+  HEADQUARTER
+  DELIVERY
+  INVOICE
+  FACTORY
+  HOME
+}
+
+model BPAddress {
+  id        String      @id @default(cuid())
+  bpId      String      @map("bp_id")
+  type      AddressType @default(HEADQUARTER)
+  isDefault Boolean     @default(false) @map("is_default")
+
+  country      String   @default("TR")
+  city         String
+  district     String?
+  postalCode   String?  @map("postal_code")
+  addressLine1 String   @map("address_line_1")
+  addressLine2 String?  @map("address_line_2")
+  latitude     Decimal? @db.Decimal(10, 8)
+  longitude    Decimal? @db.Decimal(11, 8)
+  phone        String?
+  email        String?
+  website      String?
+
+  businessPartner BusinessPartner @relation(fields: [bpId], references: [id], onDelete: Cascade)
+
+  @@map("bp_addresses")
+}
+
+model BPContact {
+  id         String  @id @default(cuid())
+  bpId       String  @map("bp_id")
+  firstName  String  @map("first_name")
+  lastName   String  @map("last_name")
+  title      String?
+  department String?
+  phone      String?
+  mobile     String?
+  email      String?
+  isDefault  Boolean @default(false) @map("is_default")
+
+  businessPartner BusinessPartner @relation(fields: [bpId], references: [id], onDelete: Cascade)
+
+  @@map("bp_contacts")
+}
+
+model BPBankDetail {
+  id          String  @id @default(cuid())
+  bpId        String  @map("bp_id")
+  bankCountry String  @default("TR") @map("bank_country")
+  bankKey     String  @map("bank_key")
+  bankName    String  @map("bank_name")
+  accountName String? @map("account_name")
+  iban        String
+  currency    String?
+
+  businessPartner BusinessPartner @relation(fields: [bpId], references: [id], onDelete: Cascade)
+
+  @@map("bp_bank_details")
+}
+
+model CustomerDetails {
+  id   String @id @default(cuid())
+  bpId String @unique @map("bp_id")
+
+  salesDistrict String? @map("sales_district")
+  priceList     String? @map("price_list")
+  paymentTerm   String? @map("payment_term")
+  incoterms     String?
+  incotermsLoc  String? @map("incoterms_loc")
+  shippingCond  String? @map("shipping_cond")
+  creditLimit   Decimal @default(0) @map("credit_limit") @db.Decimal(18, 2)
+  riskClass     String? @map("risk_class")
+
+  businessPartner BusinessPartner @relation(fields: [bpId], references: [id])
+
+  @@map("bp_customer_details")
+}
+
+model SupplierDetails {
+  id   String @id @default(cuid())
+  bpId String @unique @map("bp_id")
+
+  paymentTerm   String?  @map("payment_term")
+  currency      String   @default("TRY")
+  minOrderValue Decimal? @map("min_order_value") @db.Decimal(18, 2)
+  leadTimeDays  Int?     @map("lead_time_days")
+
+  businessPartner BusinessPartner @relation(fields: [bpId], references: [id])
+
+  @@map("bp_supplier_details")
+}
+
+// ─── CRM & ACTIVITIES ──────────────────────────────────────────
+
+enum ActivityType {
+  CALL
+  EMAIL
+  MEETING
+  TASK
+  NOTE
+}
+
+enum ActivityStatus {
+  PLANNED
+  COMPLETED
+  CANCELLED
+  OOO // Out of Office / No Answer
+}
+
+model CustomerActivity {
+  id          String         @id @default(cuid())
+  customerId  String         @map("customer_id")
+  type        ActivityType
+  subject     String
+  description String?        @db.Text
+  status      ActivityStatus @default(PLANNED)
+  dueDate     DateTime?      @map("due_date")
+  performedAt DateTime?      @map("performed_at")
+
+  // Relations
+  customer  BusinessPartner @relation(fields: [customerId], references: [id])
+  createdBy String          @map("created_by") // User ID (şimdilik string, User modeline bağlanabilir)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([customerId])
+  @@index([type])
+  @@map("customer_activities")
+}
+
+// ─── ISA-95 & PRODUCTION HIERARCHY ────────────────────────────
+
+enum PlantStepType {
+  SITE
+  AREA
+  CELL
+  LINE
+}
+
+model PlantStep {
+  id               String        @id @default(cuid())
+  plantId          String        @map("plant_id") // Plant'e bağlandı
+  code             String
+  name             String
+  type             PlantStepType
+  parentId         String?       @map("parent_id")
+  description      String?
+  environmentSpecs Json?         @map("environment_specs")
+  isActive         Boolean       @default(true) @map("is_active")
+  createdAt        DateTime      @default(now()) @map("created_at")
+  updatedAt        DateTime      @updatedAt @map("updated_at")
+
+  plant       Plant        @relation(fields: [plantId], references: [id])
+  parent      PlantStep?   @relation("PlantStepHierarchy", fields: [parentId], references: [id])
+  children    PlantStep[]  @relation("PlantStepHierarchy")
+  workCenters WorkCenter[]
+
+  @@unique([plantId, code])
+  @@index([parentId])
+  @@index([type])
+  @@map("plant_steps")
+}
+
+enum CapacityType {
+  TIME_BASED
+  UNIT_BASED
+}
+
+model WorkCenter {
+  id           String  @id @default(cuid())
+  plantId      String  @map("plant_id")
+  costCenterId String? @map("cost_center_id")
+  plantStepId  String? @map("plant_step_id") // Fiziksel hiyerarşi opsiyonel
+  code         String
+  name         String
+
+  efficiency   Decimal      @default(100) @db.Decimal(5, 2)
+  hourlyCost   Decimal      @default(0) @map("hourly_cost") @db.Decimal(18, 4)
+  capacityType CapacityType @default(TIME_BASED) @map("capacity_type")
+  isActive     Boolean      @default(true) @map("is_active")
+  notes        String?
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  plant      Plant       @relation(fields: [plantId], references: [id])
+  costCenter CostCenter? @relation(fields: [costCenterId], references: [id])
+  plantStep  PlantStep?  @relation(fields: [plantStepId], references: [id])
+
+  equipment    Equipment[]
+  processSteps ProcessStep[]              @relation("TargetWorkCenter")
+  operations   ProductionOrderOperation[]
+
+  @@unique([plantId, code])
+  @@map("work_centers")
+}
+
+enum EquipmentStatus {
+  IDLE
+  RUNNING
+  DOWN
+  SETUP
+  CLEANING
+  CALIBRATION_DUE
+  DECOMMISSIONED
+}
+
+model Equipment {
+  id           String          @id @default(cuid())
+  code         String
+  name         String
+  workCenterId String          @map("work_center_id")
+  serialNumber String?         @map("serial_number")
+  model        String?
+  manufacturer String?
+  status       EquipmentStatus @default(IDLE)
+
+  lastCalibration DateTime? @map("last_calibration")
+  nextCalibration DateTime? @map("next_calibration")
+  installDate     DateTime? @map("install_date")
+  metadata        Json?
+  isActive        Boolean   @default(true) @map("is_active")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  workCenter   WorkCenter                 @relation(fields: [workCenterId], references: [id])
+  capabilities EquipmentCapability[]
+  operations   ProductionOrderOperation[] @relation("EquipmentOperations")
+
+  @@unique([workCenterId, code])
+  @@index([workCenterId])
+  @@index([status])
+  @@map("equipment")
+}
+
+model EquipmentCapability {
+  id          String   @id @default(cuid())
+  equipmentId String   @map("equipment_id")
+  processType String   @map("process_type")
+  minCapacity Decimal  @default(0) @map("min_capacity") @db.Decimal(18, 4)
+  maxCapacity Decimal  @default(0) @map("max_capacity") @db.Decimal(18, 4)
+  unit        String   @default("Kg")
+  parameters  Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  equipment Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+
+  @@unique([equipmentId, processType])
+  @@map("equipment_capabilities")
+}
+
+// ─── STOCKS & PRODUCTS ────────────────────────────────────────────
 
 model Stock {
   id            String   @id @default(cuid())
@@ -51,238 +766,61 @@ model Stock {
   @@map("stocks")
 }
 
-model EntityMetadata {
-  id          String          @id @default(cuid())
-  slug        String          @unique
-  displayName String          @map("display_name")
-  description String?
-  tableName   String          @map("table_name")
-  version     Int             @default(1)
-  isActive    Boolean         @default(true) @map("is_active")
-  createdAt   DateTime        @default(now()) @map("created_at")
-  updatedAt   DateTime        @updatedAt @map("updated_at")
-  fields      FieldMetadata[]
-
-  @@map("entity_metadata")
-}
-
-model FieldMetadata {
-  id           String          @id @default(cuid())
-  entityId     String          @map("entity_id")
-  name         String
-  label        String
-  fieldType    String          @map("field_type")
-  placeholder  String?
-  defaultValue Json?           @map("default_value")
-  required     Boolean         @default(false)
-  min          Decimal?        @db.Decimal(18, 4)
-  max          Decimal?        @db.Decimal(18, 4)
-  minLength    Int?            @map("min_length")
-  maxLength    Int?            @map("max_length")
-  pattern      String?
-  options      Json?
-  group        String?
-  order        Int             @default(0)
-  colSpan      Int?            @default(1) @map("col_span")
-  visible      Boolean         @default(true)
-  disabled     Boolean         @default(false)
-  helpText     String?         @map("help_text")
-  createdAt    DateTime        @default(now()) @map("created_at")
-  updatedAt    DateTime        @updatedAt @map("updated_at")
-
-  entity EntityMetadata @relation(fields: [entityId], references: [id], onDelete: Cascade)
-
-  @@unique([entityId, name])
-  @@map("field_metadata")
-}
-
-model AuditLog {
-  id         String   @id @default(uuid())
-  entityType String   @map("entity_type")
-  entityId   String   @map("entity_id")
-  action     String   // CREATE, UPDATE, DELETE
-  userId     String?  @map("user_id")
-  oldData    Json?    @map("old_data")
-  newData    Json?    @map("new_data")
-  changes    Json?
-  metadata   Json?
-  durationMs Int?     @map("duration_ms")
-  ipAddress  String?  @map("ip_address")
-  endpoint   String?
-  createdAt  DateTime @default(now())
-
-  @@index([entityType, entityId])
-  @@index([userId])
-  @@map("audit_logs")
-}
-
-model EventOutbox {
-  id            String   @id @default(cuid())
-  eventType     String   @map("event_type")
-  aggregateType String?  @map("aggregate_type")
-  aggregateId   String?  @map("aggregate_id")
-  payload       Json
-  status        String   @default("PENDING")
-  createdAt     DateTime @default(now()) @map("created_at")
-
-  @@index([status])
-  @@map("event_outbox")
-}
-
-// ─── Organizasyon ve Tesis Yönetimi ────────────────────────────────
-
-model Organization {
-  id        String   @id @default(cuid())
-  name      String
-  taxNumber String?  @map("tax_number")
-  address   String?
-  logo      String?
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  sites ProductionSite[]
-
-  @@map("organizations")
-}
-
-model ProductionSite {
-  id             String       @id @default(cuid())
-  organizationId String       @map("organization_id")
-  name           String
-  address        String?
-  licenseNumber  String?      @map("license_number")
-  createdAt      DateTime     @default(now()) @map("created_at")
-  updatedAt      DateTime     @updatedAt @map("updated_at")
-
-  organization Organization  @relation(fields: [organizationId], references: [id])
-  workStations WorkStation[]
-
-  @@map("production_sites")
-}
-
-enum WorkStationType {
-  WEIGHING
-  GRANULATION
-  COMPRESSION
-  COATING
-  PACKAGING
-  QC
-  OTHER
-}
-
-enum CleanroomGrade {
-  GRADE_A
-  GRADE_B
-  GRADE_C
-  GRADE_D
-  CNC
-}
-
-enum WorkStationStatus {
-  ACTIVE
-  MAINTENANCE
-  CLEANING
-  VALIDATION_PENDING
-  INACTIVE
-}
-
-model WorkStation {
-  id             String            @id @default(cuid())
-  siteId         String            @map("site_id")
-  name           String
-  code           String            @unique
-  type           WorkStationType   @default(OTHER)
-  cleanroomGrade CleanroomGrade    @default(GRADE_D)
-  status         WorkStationStatus @default(ACTIVE)
-  dailyCapacity  Decimal           @default(0) @map("daily_capacity") @db.Decimal(18, 4)
-  hourlyRate     Decimal           @default(0) @map("hourly_rate") @db.Decimal(18, 4)
-  metadata       Json?
-  createdAt      DateTime          @default(now()) @map("created_at")
-  updatedAt      DateTime          @updatedAt @map("updated_at")
-
-  site       ProductionSite             @relation(fields: [siteId], references: [id])
-  operations ProductionOrderOperation[]
-
-  @@map("work_stations")
-}
-
-// ─── Üretim Planlama ve Rota ───────────────────────────────────────
-
-enum ProductionPlanStatus {
-  DRAFT
-  APPROVED
-  ACTIVE
-  CLOSED
-}
-
-model ProductionPlan {
-  id        String               @id @default(cuid())
-  code      String               @unique
-  name      String
-  startDate DateTime             @map("start_date")
-  endDate   DateTime             @map("end_date")
-  status    ProductionPlanStatus @default(DRAFT)
-  createdAt DateTime             @default(now()) @map("created_at")
-  updatedAt DateTime             @updatedAt @map("updated_at")
-
-  productionOrders ProductionOrder[]
-
-  @@map("production_plans")
-}
-
-model Routing {
-  id        String   @id @default(cuid())
-  productId String   @map("product_id")
-  version   Int      @default(1)
-  isActive  Boolean  @default(true) @map("is_active")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  product Product       @relation(fields: [productId], references: [id])
-  steps   RoutingStep[]
-
-  @@map("routings")
-}
-
-model RoutingStep {
-  id              String          @id @default(cuid())
-  routingId       String          @map("routing_id")
-  stepNumber      Int             @map("step_number")
-  workStationType WorkStationType @map("work_station_type")
-  description     String?
-  standardTime    Int             @default(0) @map("standard_time") // Seconds per unit
-  setupTime       Int             @default(0) @map("setup_time") // Seconds
-  createdAt       DateTime        @default(now()) @map("created_at")
-  updatedAt       DateTime        @updatedAt @map("updated_at")
-
-  routing Routing @relation(fields: [routingId], references: [id], onDelete: Cascade)
-
-  @@map("routing_steps")
-}
-
-enum ProductionOrderStatus {
-  DRAFT
-  PLANNED
-  IN_PROGRESS
-  COMPLETED
-  CANCELLED
-}
-
-enum BatchStatus {
-  PENDING
-  IN_PRODUCTION
-  QC_PENDING
-  QC_PASSED
-  QC_FAILED
-  RELEASED
-  REJECTED
-}
-
 enum MaterialType {
   RAW_MATERIAL
   PACKAGING
   SEMI_FINISHED
   FINISHED_PRODUCT
+}
+
+model Material {
+  id            String       @id @default(cuid())
+  code          String       @unique @map("material_code")
+  name          String
+  type          MaterialType @default(RAW_MATERIAL)
+  unitOfMeasure String       @default("Kg") @map("unit_of_measure")
+  unitPrice     Decimal      @default(0) @map("unit_price") @db.Decimal(18, 4)
+  currency      String       @default("TRY")
+  currentStock  Decimal      @default(0) @map("current_stock") @db.Decimal(18, 4)
+  minStockLevel Decimal      @default(0) @map("min_stock_level") @db.Decimal(18, 4)
+  maxStockLevel Decimal      @default(0) @map("max_stock_level") @db.Decimal(18, 4)
+  safetyStock   Decimal      @default(0) @map("safety_stock") @db.Decimal(18, 4)
+  moq           Decimal?     @db.Decimal(18, 4)
+
+  // Rules & Configuration
+  qualityControl     Boolean @default(false) @map("quality_control")
+  autoBatch          Boolean @default(true) @map("auto_batch")
+  orderApproval      Boolean @default(false) @map("order_approval")
+  allowNegativeStock Boolean @default(false) @map("allow_negative_stock")
+
+  valuationClass String? @map("valuation_class") // Muhasebe Entegrasyonu için
+
+  supplierId String? @map("supplier_id")
+
+  category         String?
+  brand            String?
+  casNumber        String?  @map("cas_number")
+  shelfLife        Int?     @map("shelf_life")
+  storageCondition String?  @map("storage_condition")
+  isActive         Boolean  @default(true) @map("is_active")
+  notes            String?
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  supplier    BusinessPartner? @relation(fields: [supplierId], references: [id])
+  recipeItems RecipeItem[]
+  batches     MaterialBatch[]
+
+  prItems             PurchaseRequisitionItem[]
+  poItems             PurchaseOrderItem[]
+  salesQuotationItems SalesQuotationItem[]
+  salesOrderItems     SalesOrderItem[]
+  outboundItems       OutboundDeliveryItem[]
+  movements           MaterialDocumentItem[]
+  invoiceItems        InvoiceItem[]
+
+  @@index([isActive])
+  @@map("materials")
 }
 
 enum MaterialBatchStatus {
@@ -293,60 +831,9 @@ enum MaterialBatchStatus {
   CONSUMED
 }
 
-model Supplier {
-  id            String   @id @default(cuid())
-  code          String   @unique @map("supplier_code")
-  name          String
-  contactPerson String?  @map("contact_person")
-  email         String?
-  phone         String?
-  address       String?
-  city          String?
-  country       String?  @default("Türkiye")
-  taxNumber     String?  @map("tax_number")
-  isActive      Boolean  @default(true) @map("is_active")
-  leadTimeDays  Int?     @default(7) @map("lead_time_days")
-  notes         String?
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
-
-  materials Material[]
-
-  @@map("suppliers")
-}
-
-model Material {
-  id               String       @id @default(cuid())
-  code             String       @unique @map("material_code")
-  name             String
-  type             MaterialType @default(RAW_MATERIAL)
-  unitOfMeasure    String       @default("Kg") @map("unit_of_measure")
-  unitPrice        Decimal      @default(0) @map("unit_price") @db.Decimal(18, 4)
-  currency         String       @default("TRY")
-  currentStock     Decimal      @default(0) @map("current_stock") @db.Decimal(18, 4)
-  minStockLevel    Decimal      @default(0) @map("min_stock_level") @db.Decimal(18, 4)
-  moq              Decimal?     @db.Decimal(18, 4)
-  supplierId       String?      @map("supplier_id")
-  category         String?
-  casNumber        String?      @map("cas_number")
-  shelfLife        Int?         @map("shelf_life")
-  storageCondition String?      @map("storage_condition")
-  isActive         Boolean      @default(true) @map("is_active")
-  notes            String?
-  createdAt        DateTime     @default(now()) @map("created_at")
-  updatedAt        DateTime     @updatedAt @map("updated_at")
-
-  supplier    Supplier?    @relation(fields: [supplierId], references: [id])
-  recipeItems RecipeItem[]
-  batches     MaterialBatch[]
-
-  @@index([isActive])
-  @@map("materials")
-}
-
 model MaterialBatch {
   id                String              @id @default(cuid())
-  batchNumber       String              @unique @map("batch_number")
+  batchNumber       String              @map("batch_number") // Unique constraint moved to block level
   materialId        String              @map("material_id")
   supplierLotNo     String?             @map("supplier_lot_no")
   manufacturingDate DateTime?           @map("manufacturing_date")
@@ -358,9 +845,10 @@ model MaterialBatch {
   createdAt         DateTime            @default(now()) @map("created_at")
   updatedAt         DateTime            @updatedAt @map("updated_at")
 
-  material Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  material     Material                     @relation(fields: [materialId], references: [id], onDelete: Cascade)
   consumptions ProductionBatchConsumption[]
 
+  @@unique([materialId, batchNumber])
   @@index([batchNumber])
   @@index([materialId])
   @@index([expiryDate])
@@ -387,13 +875,91 @@ model Product {
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
-  recipes          Recipe[]
-  productionOrders ProductionOrder[]
-  routings         Routing[]
+  recipes            Recipe[]
+  productionOrders   ProductionOrder[]
+  routings           Routing[]
+  processDefinitions ProcessDefinition[]
 
   @@index([isActive])
   @@map("products")
 }
+
+// ─── PROCESS & PRODUCTION ─────────────────────────────────────────
+
+enum ProcessDefinitionStatus {
+  DRAFT
+  APPROVED
+  OBSOLETE
+}
+
+model ProcessDefinition {
+  id         String                  @id @default(cuid())
+  code       String                  @unique
+  name       String
+  productId  String                  @map("product_id")
+  version    Int                     @default(1)
+  status     ProcessDefinitionStatus @default(DRAFT)
+  notes      String?
+  approvedBy String?                 @map("approved_by")
+  approvedAt DateTime?               @map("approved_at")
+  createdAt  DateTime                @default(now()) @map("created_at")
+  updatedAt  DateTime                @updatedAt @map("updated_at")
+
+  product Product       @relation(fields: [productId], references: [id])
+  steps   ProcessStep[]
+
+  @@index([productId])
+  @@index([status])
+  @@map("process_definitions")
+}
+
+enum InstructionType {
+  CHECK
+  INPUT
+  CONFIRMATION
+}
+
+model ProcessStep {
+  id                  String  @id @default(cuid())
+  processDefinitionId String  @map("process_definition_id")
+  sequence            Int
+  name                String
+  description         String?
+  requiredCapability  String? @map("required_capability")
+  targetWorkCenterId  String? @map("target_work_center_id")
+
+  setupTimeMinutes      Int     @default(0) @map("setup_time_minutes")
+  runTimeSecondsPerUnit Int     @default(0) @map("run_time_seconds_per_unit")
+  qualityCheckRequired  Boolean @default(false) @map("quality_check_required")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  processDefinition ProcessDefinition @relation(fields: [processDefinitionId], references: [id], onDelete: Cascade)
+  targetWorkCenter  WorkCenter?       @relation("TargetWorkCenter", fields: [targetWorkCenterId], references: [id])
+  instructions      Instruction[]
+
+  @@index([processDefinitionId])
+  @@map("process_steps")
+}
+
+model Instruction {
+  id        String          @id @default(cuid())
+  stepId    String          @map("step_id")
+  sequence  Int             @default(0)
+  text      String
+  type      InstructionType @default(CHECK)
+  mandatory Boolean         @default(true)
+  createdAt DateTime        @default(now()) @map("created_at")
+  updatedAt DateTime        @updatedAt @map("updated_at")
+
+  step ProcessStep @relation(fields: [stepId], references: [id], onDelete: Cascade)
+
+  @@index([stepId])
+  @@map("instructions")
+}
+
+// ─── LEGACY RECIPE (Mevcut yapı ile uyumluluk için) ───────────────
 
 model Recipe {
   id           String    @id @default(cuid())
@@ -420,25 +986,87 @@ model Recipe {
 }
 
 model RecipeItem {
-  id             String  @id @default(cuid())
-  recipeId       String  @map("recipe_id")
-  materialId     String  @map("material_id")
-  quantity       Decimal @map("quantity") @db.Decimal(18, 4)
-  unit           String  @default("Kg")
-  wastagePercent Decimal @default(0) @map("wastage_percent") @db.Decimal(5, 2)
-  unitCost       Decimal @default(0) @map("unit_cost") @db.Decimal(18, 4)
-  totalCost      Decimal @default(0) @map("total_cost") @db.Decimal(18, 4)
+  id             String   @id @default(cuid())
+  recipeId       String   @map("recipe_id")
+  materialId     String   @map("material_id")
+  quantity       Decimal  @map("quantity") @db.Decimal(18, 4)
+  unit           String   @default("Kg")
+  wastagePercent Decimal  @default(0) @map("wastage_percent") @db.Decimal(5, 2)
+  unitCost       Decimal  @default(0) @map("unit_cost") @db.Decimal(18, 4)
+  totalCost      Decimal  @default(0) @map("total_cost") @db.Decimal(18, 4)
   notes          String?
-  order          Int     @default(0)
+  order          Int      @default(0)
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
-  recipe   Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
-  material Material @relation(fields: [materialId], references: [id])
+  recipe       Recipe                       @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  material     Material                     @relation(fields: [materialId], references: [id])
   consumptions ProductionBatchConsumption[]
 
   @@unique([recipeId, materialId])
   @@map("recipe_items")
+}
+
+model Routing {
+  id        String   @id @default(cuid())
+  productId String   @map("product_id")
+  version   Int      @default(1)
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  product Product       @relation(fields: [productId], references: [id])
+  steps   RoutingStep[]
+
+  @@map("routings")
+}
+
+model RoutingStep {
+  id           String   @id @default(cuid())
+  routingId    String   @map("routing_id")
+  stepNumber   Int      @map("step_number")
+  // workStationType WorkStationType @map("work_station_type") // Enum removed
+  description  String?
+  standardTime Int      @default(0) @map("standard_time")
+  setupTime    Int      @default(0) @map("setup_time")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  routing Routing @relation(fields: [routingId], references: [id], onDelete: Cascade)
+
+  @@map("routing_steps")
+}
+
+// ─── EXECUTION (Üretim Emirleri) ──────────────────────────────────
+
+enum ProductionPlanStatus {
+  DRAFT
+  APPROVED
+  ACTIVE
+  CLOSED
+}
+
+model ProductionPlan {
+  id        String               @id @default(cuid())
+  code      String               @unique
+  name      String
+  startDate DateTime             @map("start_date")
+  endDate   DateTime             @map("end_date")
+  status    ProductionPlanStatus @default(DRAFT)
+  createdAt DateTime             @default(now()) @map("created_at")
+  updatedAt DateTime             @updatedAt @map("updated_at")
+
+  productionOrders ProductionOrder[]
+
+  @@map("production_plans")
+}
+
+enum ProductionOrderStatus {
+  DRAFT
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
 }
 
 model ProductionOrder {
@@ -461,7 +1089,7 @@ model ProductionOrder {
   updatedAt       DateTime              @updatedAt @map("updated_at")
 
   product Product           @relation(fields: [productId], references: [id])
-  recipe  Recipe             @relation(fields: [recipeId], references: [id])
+  recipe  Recipe            @relation(fields: [recipeId], references: [id])
   batches ProductionBatch[]
 
   productionPlanId String?         @map("production_plan_id")
@@ -474,45 +1102,58 @@ model ProductionOrder {
   @@map("production_orders")
 }
 
+enum BatchStatus {
+  PENDING
+  IN_PRODUCTION
+  QC_PENDING
+  QC_PASSED
+  QC_FAILED
+  RELEASED
+  REJECTED
+}
+
 model ProductionOrderOperation {
-  id                String            @id @default(cuid())
-  productionOrderId String            @map("production_order_id")
-  workStationId     String?           @map("work_station_id")
-  stepNumber        Int               @map("step_number")
-  status            BatchStatus       @default(PENDING) // Reusing BatchStatus for simplicity or create OperationStatus
-  actualStart       DateTime?         @map("actual_start")
-  actualEnd         DateTime?         @map("actual_end")
-  producedQuantity  Decimal           @default(0) @map("produced_quantity") @db.Decimal(18, 4)
-  wasteQuantity     Decimal           @default(0) @map("waste_quantity") @db.Decimal(18, 4)
+  id                String      @id @default(cuid())
+  productionOrderId String      @map("production_order_id")
+  workCenterId      String?     @map("work_center_id")
+  stepNumber        Int         @map("step_number")
+  status            BatchStatus @default(PENDING)
+  actualStart       DateTime?   @map("actual_start")
+  actualEnd         DateTime?   @map("actual_end")
+  producedQuantity  Decimal     @default(0) @map("produced_quantity") @db.Decimal(18, 4)
+  wasteQuantity     Decimal     @default(0) @map("waste_quantity") @db.Decimal(18, 4)
   notes             String?
-  createdAt         DateTime          @default(now()) @map("created_at")
-  updatedAt         DateTime          @updatedAt @map("updated_at")
+  createdAt         DateTime    @default(now()) @map("created_at")
+  updatedAt         DateTime    @updatedAt @map("updated_at")
+
+  equipmentId String? @map("equipment_id")
 
   productionOrder ProductionOrder @relation(fields: [productionOrderId], references: [id], onDelete: Cascade)
-  workStation     WorkStation?    @relation(fields: [workStationId], references: [id])
+  workCenter      WorkCenter?     @relation(fields: [workCenterId], references: [id])
+  equipment       Equipment?      @relation("EquipmentOperations", fields: [equipmentId], references: [id])
 
   @@map("production_order_operations")
 }
 
 model ProductionBatch {
-  id                String      @id @default(cuid())
-  batchNumber       String      @unique @map("batch_number")
-  productionOrderId String      @map("production_order_id")
-  quantity          Decimal     @map("quantity") @db.Decimal(18, 4)
-  unit              String      @default("Adet")
-  status            BatchStatus @default(PENDING)
-  manufacturingDate DateTime?   @map("manufacturing_date")
-  expiryDate        DateTime?   @map("expiry_date")
-  qcDate            DateTime?   @map("qc_date")
-  qcNotes           String?     @map("qc_notes")
-  qcApprovedBy      String?     @map("qc_approved_by")
-  productionLocation String?    @map("production_location")
-  storageLocation   String?     @map("storage_location")
-  notes             String?
-  createdAt         DateTime    @default(now()) @map("created_at")
-  updatedAt         DateTime    @updatedAt @map("updated_at")
+  id                 String      @id @default(cuid())
+  batchNumber        String      @unique @map("batch_number")
+  productionOrderId  String      @map("production_order_id")
+  quantity           Decimal     @map("quantity") @db.Decimal(18, 4)
+  unit               String      @default("Adet")
+  status             BatchStatus @default(PENDING)
+  manufacturingDate  DateTime?   @map("manufacturing_date")
+  expiryDate         DateTime?   @map("expiry_date")
+  qcDate             DateTime?   @map("qc_date")
+  qcNotes            String?     @map("qc_notes")
+  qcApprovedBy       String?     @map("qc_approved_by")
+  productionLocation String?     @map("production_location")
+  storageLocation    String?     @map("storage_location")
+  notes              String?
+  createdAt          DateTime    @default(now()) @map("created_at")
+  updatedAt          DateTime    @updatedAt @map("updated_at")
 
-  productionOrder ProductionOrder @relation(fields: [productionOrderId], references: [id])
+  productionOrder ProductionOrder              @relation(fields: [productionOrderId], references: [id])
   consumptions    ProductionBatchConsumption[]
 
   @@index([status])
@@ -520,6 +1161,31 @@ model ProductionBatch {
   @@index([createdAt])
   @@map("production_batches")
 }
+
+model ProductionBatchConsumption {
+  id                      String   @id @default(cuid())
+  productionBatchId       String   @map("production_batch_id")
+  materialBatchId         String   @map("material_batch_id")
+  recipeItemId            String?  @map("recipe_item_id")
+  consumedQuantity        Decimal  @map("consumed_quantity") @db.Decimal(18, 4)
+  unit                    String   @default("Kg")
+  timestamp               DateTime @default(now())
+  materialStorageLocation String?  @map("material_storage_location")
+  createdAt               DateTime @default(now()) @map("created_at")
+  updatedAt               DateTime @updatedAt @map("updated_at")
+
+  productionBatch ProductionBatch @relation(fields: [productionBatchId], references: [id], onDelete: Cascade)
+  materialBatch   MaterialBatch   @relation(fields: [materialBatchId], references: [id])
+  recipeItem      RecipeItem?     @relation(fields: [recipeItemId], references: [id])
+
+  @@index([productionBatchId])
+  @@index([materialBatchId])
+  @@index([recipeItemId])
+  @@index([timestamp])
+  @@map("production_batch_consumptions")
+}
+
+// ─── STOCK MOVEMENTS ──────────────────────────────────────────────
 
 enum StockMovementType {
   INBOUND
@@ -558,25 +1224,366 @@ model StockMovement {
   @@map("stock_movements")
 }
 
-model ProductionBatchConsumption {
-  id                      String   @id @default(cuid())
-  productionBatchId       String   @map("production_batch_id")
-  materialBatchId         String   @map("material_batch_id")
-  recipeItemId            String?  @map("recipe_item_id")
-  consumedQuantity        Decimal  @map("consumed_quantity") @db.Decimal(18, 4)
-  unit                    String   @default("Kg")
-  timestamp               DateTime @default(now())
-  materialStorageLocation String?  @map("material_storage_location")
-  createdAt               DateTime @default(now()) @map("created_at")
-  updatedAt               DateTime @updatedAt @map("updated_at")
+// ─── SERVICE MONITORING ───────────────────────────────────────────
 
-  productionBatch ProductionBatch @relation(fields: [productionBatchId], references: [id], onDelete: Cascade)
-  materialBatch   MaterialBatch   @relation(fields: [materialBatchId], references: [id])
-  recipeItem      RecipeItem?     @relation(fields: [recipeItemId], references: [id])
+enum ServiceDirection {
+  INBOUND
+  OUTBOUND
+}
 
-  @@index([productionBatchId])
-  @@index([materialBatchId])
-  @@index([recipeItemId])
-  @@index([timestamp])
-  @@map("production_batch_consumptions")
+enum ServiceStatus {
+  SUCCESS
+  FAILED
+  PENDING_RETRY
+  RETRIED
+  ARCHIVED
+}
+
+model ServiceLog {
+  id         String           @id @default(uuid())
+  direction  ServiceDirection
+  endpoint   String
+  method     String
+  statusCode Int              @map("status_code")
+  durationMs Int              @map("duration_ms")
+
+  requestHeaders  Json?   @map("request_headers")
+  requestBody     Json?   @map("request_body")
+  responseHeaders Json?   @map("response_headers")
+  responseBody    Json?   @map("response_body")
+  errorMessage    String? @map("error_message")
+
+  retryCount  Int     @default(0) @map("retry_count")
+  isRetriable Boolean @default(false) @map("is_retriable")
+
+  status ServiceStatus @default(SUCCESS)
+
+  clientIp  String?  @map("client_ip")
+  userId    String?  @map("user_id")
+  traceId   String?  @map("trace_id")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@index([endpoint])
+  @@index([createdAt])
+  @@index([traceId])
+  @@index([direction])
+  @@index([statusCode])
+  @@map("service_logs")
+}
+
+// ─── FINANCE & CONTROLLING (FI/CO) ────────────────────────────────
+
+enum AccountType {
+  ASSET // Varlık
+  LIABILITY // Yükümlülük
+  EQUITY // Özkaynak
+  REVENUE // Gelir
+  EXPENSE // Gider
+}
+
+model GLAccount {
+  id               String      @id @default(cuid())
+  companyCodeId    String      @map("company_code_id")
+  accountNumber    String      @unique @map("account_number") // 100.01.001
+  name             String
+  type             AccountType
+  currency         String      @default("TRY")
+  isReconciliation Boolean     @default(false) @map("is_reconciliation") // Mutabakat hesabı mı?
+  isTaxAccount     Boolean     @default(false) @map("is_tax_account")
+  isActive         Boolean     @default(true) @map("is_active")
+
+  companyCode CompanyCode        @relation(fields: [companyCodeId], references: [id])
+  items       JournalEntryItem[]
+
+  @@map("gl_accounts")
+}
+
+model JournalEntry {
+  id            String   @id @default(cuid())
+  entryNumber   String   @unique @map("entry_number") // FI-2024-00001
+  companyCodeId String   @map("company_code_id")
+  fiscalYear    Int      @map("fiscal_year")
+  postingDate   DateTime @map("posting_date")
+  documentDate  DateTime @default(now()) @map("document_date")
+  period        Int
+  currency      String   @default("TRY")
+  headerText    String?  @map("header_text")
+  reference     String? // Fatura No vb.
+  status        String   @default("DRAFT") // DRAFT, POSTED, REVERSED
+
+  billingId   String?     @unique @map("billing_id") // SD Fatura Ref
+  invoice     Invoice?    @relation(fields: [billingId], references: [id])
+  companyCode CompanyCode @relation(fields: [companyCodeId], references: [id])
+
+  items JournalEntryItem[]
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("journal_entries")
+}
+
+model JournalEntryItem {
+  id             String  @id @default(cuid())
+  journalEntryId String  @map("journal_entry_id")
+  glAccountId    String  @map("gl_account_id")
+  description    String?
+
+  debit      Decimal @default(0) @db.Decimal(18, 2)
+  credit     Decimal @default(0) @db.Decimal(18, 2)
+  amountInfo String? // Ek bilgi (Borç/Alacak göstergesi)
+
+  costCenterId   String? @map("cost_center_id")
+  profitCenterId String? @map("profit_center_id")
+
+  glAccount    GLAccount     @relation(fields: [glAccountId], references: [id])
+  journalEntry JournalEntry  @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  costCenter   CostCenter?   @relation(fields: [costCenterId], references: [id])
+  profitCenter ProfitCenter? @relation(fields: [profitCenterId], references: [id])
+
+  @@map("journal_entry_items")
+}
+
+// ─── SALES QUOTATION (SATIŞ TEKLİFİ) ──────────────────────────────
+
+enum SalesQuotationStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  REJECTED
+  EXPIRED
+  CONVERTED
+}
+
+model SalesQuotation {
+  id               String               @id @default(cuid())
+  quoteNumber      String               @unique @map("quote_number") // QT-2026-00001
+  customerId       String               @map("customer_id")
+  salesOrgId       String?              @map("sales_org_id")
+  validFrom        DateTime             @map("valid_from")
+  validTo          DateTime             @map("valid_to")
+  status           SalesQuotationStatus @default(DRAFT)
+  currency         String               @default("TRY")
+  totalNetAmount   Decimal              @default(0) @map("total_net_amount") @db.Decimal(18, 2)
+  totalTaxAmount   Decimal              @default(0) @map("total_tax_amount") @db.Decimal(18, 2)
+  totalGrossAmount Decimal              @default(0) @map("total_gross_amount") @db.Decimal(18, 2)
+  notes            String?
+
+  customer BusinessPartner      @relation(fields: [customerId], references: [id])
+  salesOrg SalesOrg?            @relation(fields: [salesOrgId], references: [id])
+  items    SalesQuotationItem[]
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("sales_quotations")
+}
+
+model SalesQuotationItem {
+  id          String  @id @default(cuid())
+  quotationId String  @map("quotation_id")
+  materialId  String  @map("material_id")
+  quantity    Decimal @map("quantity") @db.Decimal(18, 4)
+  unit        String  @default("Adet")
+  unitPrice   Decimal @default(0) @map("unit_price") @db.Decimal(18, 2)
+  netAmount   Decimal @default(0) @map("net_amount") @db.Decimal(18, 2)
+  taxAmount   Decimal @default(0) @map("tax_amount") @db.Decimal(18, 2)
+  notes       String?
+
+  quotation SalesQuotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  material  Material       @relation(fields: [materialId], references: [id])
+
+  @@map("sales_quotation_items")
+}
+
+// ─── SALES & DISTRIBUTION (SD) ────────────────────────────────────
+
+model SalesOrg {
+  id            String @id @default(cuid())
+  companyCodeId String @map("company_code_id")
+  code          String @unique
+  name          String
+  currency      String @default("TRY")
+
+  companyCode     CompanyCode      @relation(fields: [companyCodeId], references: [id])
+  salesQuotations SalesQuotation[]
+  salesOrders     SalesOrder[]
+  salesAreas      SalesArea[]
+
+  @@map("sales_orgs")
+}
+
+model SalesOrder {
+  id               String    @id @default(cuid())
+  orderNumber      String    @unique @map("order_number")
+  salesOrgId       String    @map("sales_org_id")
+  customerId       String    @map("customer_id")
+  customerRef      String?   @map("customer_ref")
+  orderDate        DateTime  @default(now()) @map("order_date")
+  requestedDate    DateTime? @map("requested_date")
+  currency         String    @default("TRY")
+  totalNetAmount   Decimal   @default(0) @map("total_net_amount") @db.Decimal(18, 2)
+  totalTaxAmount   Decimal   @default(0) @map("total_tax_amount") @db.Decimal(18, 2)
+  totalGrossAmount Decimal   @default(0) @map("total_gross_amount") @db.Decimal(18, 2)
+  status           String    @default("DRAFT") // DRAFT, CONFIRMED, DELIVERED, BILLED
+
+  salesOrg   SalesOrg           @relation(fields: [salesOrgId], references: [id])
+  customer   BusinessPartner    @relation(fields: [customerId], references: [id])
+  items      SalesOrderItem[]
+  deliveries OutboundDelivery[]
+  invoices   Invoice[]
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("sales_orders")
+}
+
+model SalesOrderItem {
+  id             String  @id @default(cuid())
+  salesOrderId   String  @map("sales_order_id")
+  materialId     String  @map("material_id")
+  plantId        String? @map("plant_id")
+  quantity       Decimal @map("quantity") @db.Decimal(18, 4)
+  unit           String  @default("Adet")
+  netPrice       Decimal @default(0) @map("net_price") @db.Decimal(18, 2)
+  netAmount      Decimal @default(0) @map("net_amount") @db.Decimal(18, 2)
+  taxAmount      Decimal @default(0) @map("tax_amount") @db.Decimal(18, 2)
+  deliveryStatus String  @default("PENDING") // PENDING, PARTIAL, FULL
+
+  salesOrder    SalesOrder             @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
+  material      Material               @relation(fields: [materialId], references: [id])
+  plant         Plant?                 @relation(fields: [plantId], references: [id])
+  deliveryItems OutboundDeliveryItem[]
+
+  @@map("sales_order_items")
+}
+
+model OutboundDelivery {
+  id             String    @id @default(cuid())
+  deliveryNumber String    @unique @map("delivery_number")
+  salesOrderId   String    @map("sales_order_id")
+  customerId     String    @map("customer_id")
+  deliveryDate   DateTime  @default(now()) @map("delivery_date")
+  plannedGIDate  DateTime? @map("planned_gi_date")
+  actualGI       DateTime? @map("actual_gi")
+  status         String    @default("DRAFT") // DRAFT, PICKED, ISSUED
+
+  salesOrder SalesOrder             @relation(fields: [salesOrderId], references: [id])
+  customer   BusinessPartner        @relation(fields: [customerId], references: [id])
+  items      OutboundDeliveryItem[]
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("outbound_deliveries")
+}
+
+model OutboundDeliveryItem {
+  id               String  @id @default(cuid())
+  deliveryId       String  @map("delivery_id")
+  salesOrderItemId String  @map("sales_order_item_id")
+  materialId       String  @map("material_id")
+  plantId          String  @map("plant_id")
+  quantity         Decimal @map("quantity") @db.Decimal(18, 4)
+  pickedQuantity   Decimal @default(0) @map("picked_quantity") @db.Decimal(18, 4)
+  unit             String  @default("Adet")
+  batchNumber      String? @map("batch_number")
+
+  delivery       OutboundDelivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+  salesOrderItem SalesOrderItem   @relation(fields: [salesOrderItemId], references: [id])
+  material       Material         @relation(fields: [materialId], references: [id])
+  plant          Plant            @relation(fields: [plantId], references: [id])
+
+  @@map("outbound_delivery_items")
+}
+
+model Invoice {
+  id               String    @id @default(cuid())
+  invoiceNumber    String    @unique @map("invoice_number")
+  companyCodeId    String    @map("company_code_id")
+  salesOrderId     String?   @map("sales_order_id")
+  customerId       String    @map("customer_id")
+  invoiceDate      DateTime  @default(now()) @map("invoice_date")
+  dueDate          DateTime? @map("due_date")
+  currency         String    @default("TRY")
+  totalNetAmount   Decimal   @default(0) @map("total_net_amount") @db.Decimal(18, 2)
+  totalTaxAmount   Decimal   @default(0) @map("total_tax_amount") @db.Decimal(18, 2)
+  totalGrossAmount Decimal   @default(0) @map("total_gross_amount") @db.Decimal(18, 2)
+  status           String    @default("DRAFT") // DRAFT, POSTED, CANCELLED
+
+  salesOrder   SalesOrder?     @relation(fields: [salesOrderId], references: [id])
+  customer     BusinessPartner @relation(fields: [customerId], references: [id])
+  items        InvoiceItem[]
+  journalEntry JournalEntry? // Relation to FI
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id                     String  @id @default(cuid())
+  invoiceId              String  @map("invoice_id")
+  salesOrderItemId       String? @map("sales_order_item_id")
+  outboundDeliveryItemId String? @map("outbound_delivery_item_id")
+  materialId             String  @map("material_id")
+  quantity               Decimal @map("quantity") @db.Decimal(18, 4)
+  unit                   String  @default("Adet")
+  netPrice               Decimal @default(0) @map("net_price") @db.Decimal(18, 2)
+  netAmount              Decimal @default(0) @map("net_amount") @db.Decimal(18, 2)
+  taxAmount              Decimal @default(0) @map("tax_amount") @db.Decimal(18, 2)
+  grossAmount            Decimal @default(0) @map("gross_amount") @db.Decimal(18, 2)
+
+  invoice  Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  material Material @relation(fields: [materialId], references: [id])
+
+  @@map("invoice_items")
+}
+
+// ─── INTEGRATION ──────────────────────────────────────────────────
+
+model IntegrationMapping {
+  systemId    String   @map("system_id")     // SAP_PRD, WMS, E_COMMERCE
+  entityType  String   @map("entity_type")   // MATERIAL, BP, ORDER
+  localId     String   @map("local_id")      // UUID
+  externalId  String   @map("external_id")   // MATNR, KUNNR, VBELN
+  payload     Json?    // Optional extra data
+  lastSyncedAt DateTime? @map("last_synced_at") @db.Timestamptz(3)
+  
+  @@unique([systemId, entityType, externalId])
+  @@unique([systemId, entityType, localId])
+  @@map("integration_mappings")
+}
+
+// ─── CUSTOMER 360 EXTENSIONS ──────────────────────────────
+
+model CustomerNote {
+  id        String   @id @default(cuid())
+  bpId      String   @map("bp_id")
+  content   String // @db.Text is implied in Postgres/SQLite usually, or use String for default text
+  isPinned  Boolean  @default(false) @map("is_pinned")
+  createdBy String   @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  businessPartner BusinessPartner @relation(fields: [bpId], references: [id], onDelete: Cascade)
+
+  @@map("customer_notes")
+}
+
+model PartnerFunction {
+  id           String  @id @default(cuid())
+  bpId         String  @map("bp_id") // The Customer (Sold-to)
+  functionCode String  @map("function_code") // RE (Bill-to), WE (Ship-to), RG (Payer), Z1 (Contact)
+  partnerId    String  @map("partner_id") // The Partner BP
+  isDefault    Boolean @default(true) @map("is_default")
+
+  sourceBP BusinessPartner @relation("SourceBP", fields: [bpId], references: [id], onDelete: Cascade)
+  targetBP BusinessPartner @relation("TargetBP", fields: [partnerId], references: [id], onDelete: Cascade)
+
+  @@unique([bpId, functionCode, partnerId])
+  @@map("partner_functions")
 }

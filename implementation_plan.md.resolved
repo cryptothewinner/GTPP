@@ -1,0 +1,100 @@
+# ERP Gap Analysis & Roadmap
+
+This document outlines the missing components in the SepeNatural ERP system based on the current codebase ([schema.prisma](file:///c:/Users/PC/.gemini/antigravity/scratch/sepe4.6/apps/api/prisma/schema.prisma) vs. Frontend Implementation).
+
+## 1. Sales & Distribution (Satış & Dağıtım)
+
+**Current Status:** `Sales Quotations` is implemented. `Sales Orders` link exists in nav but no code.
+
+| Entity | Feature | Status | Priority |
+| :--- | :--- | :--- | :--- |
+| **Sales Order** | List Page | 🔴 Missing | High |
+| | Detail/Create Page | 🔴 Missing | High |
+| | Conversion (Quote -> Order) | 🔴 Missing | High |
+| **Outbound Delivery** | List Page | 🔴 Missing | Medium |
+| | Detail Page (Pick/Pack) | 🔴 Missing | Medium |
+| | Generate from Order | 🔴 Missing | Medium |
+| **Invoice (Billing)** | List Page | 🔴 Missing | Medium |
+| | Create from Delivery | 🔴 Missing | Medium |
+| | PDF Generation | 🔴 Missing | Low |
+
+## 2. Purchasing (Satınalma)
+
+**Current Status:** **COMPLETELY MISSING**. No navigation, no pages.
+
+| Entity | Feature | Status | Priority |
+| :--- | :--- | :--- | :--- |
+| **Suppliers** | List/Detail (Business Partner) | 🔴 Missing | High |
+| **Purchase Requisition** | List/Create | 🔴 Missing | Medium |
+| **Purchase Order** | List Page | 🔴 Missing | High |
+| | Detail/Create Page | 🔴 Missing | High |
+| | Approval Workflow | 🔴 Missing | Medium |
+| **Inbound Delivery** | Goods Receipt (MIGO equivalent) | 🔴 Missing | High |
+
+## 3. Production (Üretim)
+
+**Current Status:** Partially implemented (Recipes, Batches, Definitions).
+
+| Entity | Feature | Status | Priority |
+| :--- | :--- | :--- | :--- |
+| **Production Order** | List Page | 🟡 Partial (check 'Planning') | High |
+| | Detail/Create Page | 🔴 Missing | High |
+| | Release/Start/Complete Actions | 🔴 Missing | High |
+| **Work Centers** | List/Definition | 🔴 Missing | Medium |
+| **Routings** | List/Definition | 🔴 Missing | Medium |
+| **MRP/Planning** | Material Requirements Plan | 🔴 Missing | Low |
+
+## 4. Inventory (Envanter)
+
+**Current Status:** List views exist.
+
+| Entity | Feature | Status | Priority |
+| :--- | :--- | :--- | :--- |
+| **Stock Movements** | Manual Entry (GI/GR/Transfer) | 🔴 Missing | High |
+| | History View | 🟡 Exists (needs check) | Medium |
+| **Stock Count** | Physical Inventory Entry | 🔴 Missing | Low |
+
+## 5. Finance (Muhasebe)
+
+**Current Status:** **COMPLETELY MISSING**.
+
+| Entity | Feature | Status | Priority |
+| :--- | :--- | :--- | :--- |
+| **GL Accounts** | Chart of Accounts View | 🔴 Missing | Low |
+| **Journal Entries** | Manual Entry | 🔴 Missing | Low |
+| **Integration** | Auto-posting from Invoice/Inventory | 🔴 Missing | Medium |
+
+## 6. System & Admin
+
+| Entity | Feature | Status | Priority |
+| :--- | :--- | :--- | :--- |
+| **User Mgmt** | Users & Roles | 🔴 Missing | Medium |
+| **Ent. Structure** | Company/Plant/Storage Loc Config | 🔴 Missing | Low |
+
+---
+
+## 🛑 Blockers & Immediate Actions
+
+1.  **Sales Order Module:** Link exists but page returns 404. Immediate priority to complete the Sales flow.
+2.  **Purchasing Module:** Critical for "Material Management". Needs to be started from scratch.
+3.  **Process Flow Connections:**
+    *   Link `Sales Quotation` -> `Sales Order` (Convert button).
+    *   Link `Sales Order` -> `Outbound Delivery`.
+
+## 4. Phase 4: Process Connectivity & Polish (System-Wide)
+**Focus:** Connecting the dots between modules and ensuring data completeness.
+
+| Entity | Feature | Status | Priority |
+| :--- | :--- | :--- | :--- |
+| **Purchase Order** | List Page: Total Amount Column | 🔴 Missing | High |
+| **Material** | Detail Page: Stock Movement History | 🔴 Missing | High |
+| | General Form: Category & Brand Fields | 🔴 Missing | Medium |
+| **Sales Order** | List Page: Delivery Status | 🔴 Missing | Low |
+
+## Verification Plan
+For each new module:
+1.  **Automated Tests**: implementation of `*.spec.ts` for Services/Controllers.
+2.  **Manual Verification**:
+    *   Create entity via UI.
+    *   Verify database record.
+    *   Verify status transitions (e.g., Draft -> Approved).

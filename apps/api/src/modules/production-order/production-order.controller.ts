@@ -71,4 +71,13 @@ export class ProductionOrderController {
             new Date(dto.plannedEnd),
         );
     }
+
+    @Post(':id/operations/:opId/confirm')
+    async confirmOperation(
+        @Param('id') id: string,
+        @Param('opId') opId: string,
+        @Body() dto: any
+    ) {
+        return this.productionOrderService.confirmOperation(id, opId, dto);
+    }
 }

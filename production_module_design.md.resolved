@@ -1,0 +1,175 @@
+# 🏭 Üretim Modülü İyileştirme ve Yeniden Yapılandırma Tasarımı
+
+Mevcut "Üretim İstasyonları" ve basit tanımlamalar, karmaşık bir üretim sürecini (özellikle ilaç/gıda takviyesi gibi GMP gerektiren alanlarda) yönetmek için yetersiz kalmaktadır. Aşağıda, endüstri standartlarına (ISA-95) ve modern MES (Manufacturing Execution System) pratiklerine dayalı, kapsamlı ve profesyonel bir yapı önerisi bulunmaktadır.
+
+## 1. Terminoloji ve Hiyerarşik Yapı (Hierarchy & Terminology)
+
+Basit "İstasyon" kavramı yerine, fabrikanın fiziksel ve mantıksal yapısını tam yansıtan bir hiyerarşi kurmalıyız.
+
+### Önerilen Hiyerarşi Modeli:
+1.  **Enterprise (Şirket/Holding):** En üst seviye organizasyon.
+2.  **Site (Tesis/Fabrika):** Fiziksel lokasyon (Örn: İstanbul Fabrikası).
+3.  **Area (Üretim Alanı):** Fiziksel veya mantıksal bölümleme (Örn: Katı Üretim Alanı, Likit Üretim Alanı, Ambalaj Alanı).
+    *   *Özellikler:* Temizlik Sınıfı (Grade A/B/C/D), Sıcaklık/Nem kontrolü gereksinimleri.
+4.  **Work Center (İş Merkezi):** Belirli bir işin yapıldığı ana birim (Örn: Granülasyon Hattı 1, Tablet Baskı Odası 2).
+    *   *Özellikler:* Maliyet merkezi kodu, kapasite planlama birimi.
+5.  **Work Unit / Equipment (İş Ünitesi / Ekipman):** İş merkezindeki spesifik makineler (Örn: Mikser A, Fırın B).
+
+---
+
+## 2. Varlık Tanımları (Entity Definitions)
+
+### A. Üretim Kaynakları (Production Resources)
+"İstasyon" yerine **Resource (Kaynak)** kavramını merkeze alalım. Kaynaklar sadece makineler değildir; insan, ekipman ve araçlar da birer kaynaktır.
+
+#### `Equipment` (Ekipman/Makine)
+Bir makineyi sadece "adı" ile değil, yetenekleri ve durumlarıyla tanımlamalıyız.
+*   **Temel Bilgiler:** Marka, Model, Seri No, Envanter No, Kurulum Tarihi.
+*   **Capability (Yetenekler):** Bu makine ne yapabilir? (Örn: `Karıştırma`, `Isıtma`, `Tablet Basma`).
+    *   *Parametreler:* Min/Max Hız, Kapasite (kg/saat), Çalışma Aralığı.
+*   **Operational Status:**
+    *   `Idle` (Boşta), `Running` (Çalışıyor), `Down` (Arızalı), `Setup` (Kurulum), `Cleaning` (Temizlikte).
+*   **Maintenance Profile:** Periyodik bakım takvimi, son kalibrasyon tarihi.
+
+#### `Personnel` (Personel/Operatör)
+*   **Skills/Certifications:** Hangi makineleri kullanabilir? Hangi GMP eğitimlerini aldı? (Örn: `Forklift Ehliyeti`, `Granülasyon Operatörü Sertifikası`).
+*   **Shift Availability:** Hangi vardiyada çalışıyor?
+
+---
+
+## 3. Süreç Tanımları (Process Definitions)
+
+Mevcut "Reçete" ve "Rota" kavramlarını daha detaylı hale getirmeliyiz.
+
+### A. Master Recipe & Bill of Process (BOP)
+Sadece malzeme listesi (BOM) değil, "Nasıl Yapılır?" bilgisini içeren Süreç Listesi (BOP).
+
+*   **Process Segment (Süreç Parçası):**
+    *   Örn: "Kuru Karıştırma", "Islak Granülasyon", "Eleme".
+*   **Operation (Operasyon):**
+    *   Her bir adımın detaylı tanımı.
+    *   *Gereksinimler:* Hangi yetenekte makine lazım? Kaç operatör lazım? Ortam şartları ne olmalı?
+*   **Standard Operating Procedures (SOP):**
+    *   Operatörün ekranda göreceği adım adım talimatlar. (Dijital iş emri).
+    *   *Kontrol Noktaları:* "pH ölç ve gir", "Sıcaklık 50°C olana kadar bekle".
+
+---
+
+## 4. Yeni Veritabanı Şeması Taslağı (Brainstorming Schema)
+
+Basit yapıdan profesyonel yapıya geçiş için önerilen modeller:
+
+```prisma
+// ─── ALTYAPI VE YERLEŞİM (INFRASTRUCTURE) ────────────────
+
+model PlantStep {
+  // Fabrika -> Alan -> Bölüm hiyerarşisi
+  id          String @id
+  name        String
+  type        PlantStepType // SITE, AREA, CELL, LINE
+  parentId    String?
+  // Temizlik sınıfı, ortam şartları vb.
+  environmentSpecs Json? 
+}
+
+model WorkCenter {
+  // İş Merkezi: Kapasite planlamasının yapıldığı yer
+  id            String @id
+  code          String
+  name          String
+  plantStepId   String // Hangi alanda?
+  
+  // Planlama Parametreleri
+  efficiency    Decimal @default(100) // OEE katsayısı
+  hourlyCost    Decimal // İşçilik + Enerji maliyeti
+  capacityType  CapacityType // TIME_BASED, UNIT_BASED
+}
+
+model Equipment {
+  // Fiziksel Makineler
+  id            String @id
+  workCenterId  String
+  name          String
+  serialNumber  String
+  model         String
+  
+  // Durum ve Takip
+  status        EquipmentStatus // ACTIVE, MAINTENANCE, CALIBRATION_DUE
+  lastCalibration DateTime?
+  nextCalibration DateTime?
+  
+  // Yetenekler (Bu makine ne yapabilir?)
+  capabilities  EquipmentCapability[]
+}
+
+model EquipmentCapability {
+  // Örn: Makine A "Karıştırma" yapabilir, Kapasitesi 500kg/saat
+  id            String @id
+  equipmentId   String
+  processType   String // MIXING, HEATING, PACKING
+  minCapacity   Decimal
+  maxCapacity   Decimal
+  parameters    Json // Hız, Basınç vb. limitleri
+}
+
+// ─── SÜREÇ TANIMLARI (PROCESS DEFINITION) ────────────────
+
+model ProcessDefinition {
+  // Ürün Reçetesi + Operasyonlar (BOM + BOP)
+  id          String @id
+  productId   String
+  version     String
+  status      String // DRAFT, APPROVED, OBSOLETE
+  
+  steps       ProcessStep[]
+}
+
+model ProcessStep {
+  id             String @id
+  definitionId   String
+  sequence       Int // Adım sırası (10, 20, 30)
+  name           String // "Granülasyon Hazırlık"
+  description    String
+  
+  // Gereksinimler
+  requiredCapability String? // "MIXING" yeteneği olan bir makine lazım
+  targetWorkCenterId String? // Veya spesifik merkez
+  
+  // Süre ve Kaynak
+  setupTime      Int // Dakika
+  runTimePerUnit Int // Saniye
+  
+  // Talimatlar ve Kontroller
+  instructions   Instruction[]
+  inputs         ProcessInput[] // Kullanılacak malzemeler (Recipe Item)
+}
+
+model Instruction {
+  // Operatör ekranına çıkacak adımlar
+  id          String @id
+  stepId      String
+  text        String // "Sıcaklığı kontrol et"
+  type        InstructionType // CHECK, INPUT, CONFIRMATION
+  mandatory   Boolean
+}
+```
+
+## 5. UI/UX Yansımaları (Kullanıcı Arayüzü)
+
+Bu yapıyı "Listeler" yerine görsel araçlarla sunmalıyız:
+
+1.  **Fabrika Haritası (Digital Twin Lite):**
+    *   Üretim alanlarını kuş bakışı veya blok diyagram olarak gösteren, makinelerin durumunu (Yeşil/Kırmızı) anlık yansıtan bir görsel paneli.
+2.  **Kaynak Planlama Takvimi (Gantt Chart):**
+    *   İş merkezlerinin doluluk oranlarını gösteren sürükle-bırak zaman çizelgesi.
+3.  **İş İstasyonu Tableti (Operator Panel):**
+    *   Operatörün sadece "Başlat/Durdur" dediği değil, dijital SOP'leri (Talimatları) görüp onay verdiği, tablet uyumlu arayüz.
+
+## Özet Değerlendirme
+
+Mevcut yapıdaki "Station" (İstasyon) kavramı çok statik ve yetersizdi. Yeni **"Work Center & Equipment Capabilities"** yapısı ile:
+*   Hangi makinenin hangi işi yapabildiğini dinamik yönetebilirsiniz.
+*   Makine bozulursa, "Aynı yetenekteki" diğer makineyi sistem önerebilir.
+*   Bakım ve Kalibrasyon süreçleri üretim planlamasıyla entegre olur.
+
+Bu yapıyı onaylarsanız, veritabanı şemasını (Prisma) bu yönde güncelleyebilirim.

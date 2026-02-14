@@ -28,10 +28,35 @@ export class UpdateMaterialDto {
     @Min(0)
     currentStock?: number;
 
-    @IsOptional()
     @IsNumber()
     @Min(0)
     minStockLevel?: number;
+
+    @IsOptional()
+    @IsNumber()
+    @Min(0)
+    maxStockLevel?: number;
+
+    @IsOptional()
+    @IsNumber()
+    @Min(0)
+    safetyStock?: number;
+
+    @IsOptional()
+    @IsBoolean()
+    qualityControl?: boolean;
+
+    @IsOptional()
+    @IsBoolean()
+    autoBatch?: boolean;
+
+    @IsOptional()
+    @IsBoolean()
+    orderApproval?: boolean;
+
+    @IsOptional()
+    @IsBoolean()
+    allowNegativeStock?: boolean;
 
     @IsOptional()
     @IsNumber()

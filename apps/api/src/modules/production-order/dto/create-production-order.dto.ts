@@ -36,5 +36,16 @@ export class CreateProductionOrderDto {
     @IsOptional()
     @IsString()
     @MaxLength(2000)
+    @IsOptional()
+    @IsString()
+    @MaxLength(2000)
     notes?: string;
+
+    @IsOptional()
+    @IsString()
+    productionPlanId?: string;
+
+    @IsOptional()
+    @IsString()
+    routingId?: string;
 }

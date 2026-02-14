@@ -1,0 +1,131 @@
+# SepeNatural İleri Seviye Üretim Planlama Sistemi Tasarımı
+
+## 📌 Proje Özeti ve Hedef
+**Proje:** SepeNatural ERP (Next.js 16 + NestJS + Prisma)
+**Mevcut Durum:** Basit bir AG Grid listesi ([production/planning/page.tsx](file:///c:/Users/PC/.gemini/antigravity/scratch/sepe4.6/apps/web/src/app/%28dashboard%29/production/planning/page.tsx)).
+**Hedef:** İlaç ve gıda takviyesi üretimine özel, **çoklu görünüme sahip (Multi-View)**, sürükle-bırak destekli, malzeme/kaynak kontrollü, **premium UI/UX** standartlarında bir "Üretim Planlama Merkezi" oluşturmak.
+
+---
+
+## 🎨 UI/UX Vizyonu & Tasarım Dili
+*   **Tema:** Salesforce Lightning Design System (SLDS) ve "Glassmorphism" dokunuşları.
+*   **Renk Paleti:**
+    *   *Planlandı:* `#3B82F6` (Blue)
+    *   *Devam Ediyor:* `#F59E0B` (Amber - Pulse animasyonlu)
+    *   *Kalite Kontrol:* `#8B5CF6` (Purple)
+    *   *Tamamlandı:* `#10B981` (Emerald)
+    *   *Kritik:* `#EF4444` (Red)
+*   **Navigasyon:** Sayfa içi **Tabs (Sekmeler)** yapısı:
+    1.  📋 **İş Emirleri Listesi** (Detaylı Grid)
+    2.  📅 **Üretim Takvimi** (Timeline/Gantt)
+    3.  🏗️ **Kanban Panosu** (Süreç Akışı)
+    4.  📦 **Malzeme & Kaynak** (Yük Analizi)
+
+---
+
+## 🛠️ Teknik Gereksinimler & Kütüphaneler
+*   **Grid:** `ag-grid-enterprise` (Mevcut, Tree Data ve Grouping kullanılacak. **Not:** Lisans anahtarı yoksa geliştirme ortamında watermark ile çalışır, prodüksiyon için lisans gerekir).
+*   **Takvim:** `react-big-calendar` veya `@scheduler/react`
+*   **Sürükle-Bırak:** `@dnd-kit/core` (Kanban ve Takvim için)
+*   **Grafikler:** `recharts` (Kaynak doluluk oranları için)
+*   **İkonlar:** `lucide-react`
+*   **Form:** `react-hook-form` + `zod`
+
+---
+
+## 📋 GÖRÜNÜM 1: Gelişmiş İş Emirleri Listesi (Smart Grid)
+Mevcut grid aşağıdaki özelliklerle güçlendirilecek:
+
+1.  **Dinamik Durum Göstergeleri:**
+    *   Renkli badge'ler (`STATUS_MAP`).
+    *   "İlerleme Çubuğu" kolonu (Batch doluluk oranına göre).
+    *   "Gecikme" uyarısı (Eğer `plannedEnd < today` ve bitmediyse kırmızı satır).
+
+2.  **Akıllı Kolonlar:**
+    *   **Ürün:** Resim + Ad + Kod (Hücre içinde mini kart).
+    *   **Reçete:** Reçete versiyonu ve toplam maliyet tooltip'i.
+    *   **Malzeme Kontrolü (YENİ):** Trafik Işığı Sistemi 🟢🟡🔴
+        *   Backend her emir için stok kontrolü yapar.
+        *   🟢 Tüm malzemeler hazır.
+        *   🟡 Bazı malzemeler kritik seviyede.
+        *   🔴 Malzeme eksik, üretime başlanamaz.
+
+3.  **Hızlı Aksiyonlar (Row Actions):**
+    *   🖱️ **Başlat:** Durumu `IN_PROGRESS`e çeker (Sadece malzeme varsa).
+    *   🖱️ **Tamamla:** Durumu `QC_PENDING`e çeker.
+    *   🖱️ **Planla:** Tarih güncelleme modalı açar.
+
+---
+
+## 📅 GÖRÜNÜM 2: Üretim Takvimi (Resource Scheduler)
+*   **X Ekseni:** Zaman (Gün/Hafta/Ay).
+*   **Y Ekseni:** Kaynaklar (Üretim Hattı 1, Hattı 2, Dolum Makinesi vb. - *Metadata'dan çekilebilir veya statik tanımlanabilir*).
+*   **Eventler:** İş emirleri (`plannedStart` - `plannedEnd` aralığı).
+*   **İşlev:**
+    *   Bir iş emrini sürükleyip başka bir güne bırakınca `updateProductionOrder` endpoint'i tetiklenir.
+    *   Event üzerine tıklayınca detay pop-up açılır.
+
+---
+
+## 🏗️ GÖRÜNÜM 3: Kanban Panosu (Process Flow)
+*   **Sütunlar:** `DRAFT` → `PLANNED` → `IN_PROGRESS` → `COMPLETED`.
+*   **Kart Yapısı:**
+    *   **Header:** `UE-2024-001` (Bold) | Ürün Adı
+    *   **Body:** 5000 Adet | Başlangıç: 14 Şub
+    *   **Footer:** Atanan Kişi (Avatar) | İlerleme Barı %45
+*   **Sürükle-Bırak:** Sütunlar arası geçişte statü güncellenir.
+*   **Kısıt:** Malzeme yoksa `PLANNED` → `IN_PROGRESS` geçişine izin verme (Hata toast'ı göster).
+
+---
+
+## 📦 GÖRÜNÜM 4: Kaynak & Malzeme Analizi
+*   **Grafik:** Üretim planına göre gelecek 30 gündeki hammadde ihtiyacı.
+    *   "Hangi hafta ne kadar Vitamin C lazım?"
+    *   Mevcut stok çizgisi ile ihtiyaç çubuklarını karşılaştır.
+*   **KPI Kartları:**
+    *   "Kritik Malzemeler" (Stok yetersiz olanlar).
+    *   "Boş Kapasite" (Üretim hattı doluluk oranı).
+
+---
+
+## ⚙️ BACKEND (NestJS) Geliştirmeleri
+
+### 1. [ProductionOrderService](file:///c:/Users/PC/.gemini/antigravity/scratch/sepe4.6/apps/api/src/modules/production-order/production-order.service.ts#14-171)
+*   `checkMaterialAvailability(orderId)` metodu:
+    *   Order → Recipe → RecipeItems çek.
+    *   Her item için `Material.currentStock` kontrol et.
+    *   Return: `{ isAvailable: boolean, missingItems: [] }`
+
+### 2. [ProductionOrderController](file:///c:/Users/PC/.gemini/antigravity/scratch/sepe4.6/apps/api/src/modules/production-order/production-order.controller.ts#6-59)
+*   `GET /:id/availability` endpoint'i.
+*   `PATCH /:id/reschedule` endpoint'i (Sadece tarihleri günceller, log kaydı atar).
+
+### 3. Seed Data
+*   Üretim hatları veya istasyonları için `EntityMetadata` veya basit bir [const](file:///c:/Users/PC/.gemini/antigravity/scratch/sepe4.6/apps/api/src/modules/product/product.service.ts#15-16) tanımı ekle (Takvim görünümü için).
+
+---
+
+## 🚀 Uygulama Adımları (Prompt Sırası)
+
+1.  **Backend Hazırlığı:**
+    *   `checkMaterialAvailability` servisini yaz.
+    *   API endpoint'ini aç.
+2.  **Hook & Type:**
+    *   `useMaterialCheck` hook'unu ve `MaterialCheckResponse` tipini oluştur.
+3.  **UI İskeleti:**
+    *   [page.tsx](file:///c:/Users/PC/.gemini/antigravity/scratch/sepe4.6/apps/web/src/app/%28dashboard%29/inventory/page.tsx)'i Tab yapısına çevir.
+    *   `PlanningTabs` component'i oluştur.
+4.  **Görünümlerin Kodlanması:**
+    *   `PlanningGrid.tsx` (Mevcut grid'in upgrade hali).
+    *   `PlanningKanban.tsx` (dnd-kit ile).
+    *   `PlanningCalendar.tsx` (Big Calendar ile).
+5.  **Entegrasyon:**
+    *   Malzeme kontrolünü Grid ve Kanban'a entegre et (Renk/İkon değişimi).
+    *   Sürükle-bırak işlemlerini API'ye bağla.
+
+---
+
+## 💡 Önemli Notlar
+*   **Performans:** Grid sayfalama (pagination) kullanmalı, ancak Kanban ve Takvim için belirli bir tarih aralığı (örn. bu ay) çekilmeli.
+*   **Hata Yönetimi:** Sürükle-bırak başarısız olursa UI eski haline dönmeli (Optimistic UI).
+*   **SepeNatural Özel:** Gıda takviyesi üretiminde "Temizlik Arası" (Clearance) önemlidir. İki üretim arasına otomatik 2 saatlik boşluk bırakılabilir (Opsiyonel ileri seviye özellik).

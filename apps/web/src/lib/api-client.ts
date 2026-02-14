@@ -8,6 +8,7 @@ if (!process.env.NEXT_PUBLIC_API_URL && typeof window !== 'undefined') {
 
 interface RequestOptions extends Omit<RequestInit, 'body'> {
     body?: unknown;
+    params?: Record<string, any>;
 }
 
 class ApiClient {
@@ -18,13 +19,27 @@ class ApiClient {
     }
 
     private async request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
-        const { body, headers, ...rest } = options;
+        const { body, headers, params, ...rest } = options;
         const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
 
         const startTime = performance.now();
         const method = rest.method || 'GET';
 
-        const response = await fetch(`${this.baseUrl}${endpoint}`, {
+        let url = `${this.baseUrl}${endpoint}`;
+        if (params) {
+            const searchParams = new URLSearchParams();
+            Object.entries(params).forEach(([key, value]) => {
+                if (value !== undefined && value !== null && value !== '') {
+                    searchParams.append(key, String(value));
+                }
+            });
+            const queryString = searchParams.toString();
+            if (queryString) {
+                url += (url.includes('?') ? '&' : '?') + queryString;
+            }
+        }
+
+        const response = await fetch(url, {
             headers: {
                 'Content-Type': 'application/json',
                 ...(token ? { Authorization: `Bearer ${token}` } : {}),

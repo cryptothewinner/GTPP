@@ -21,6 +21,9 @@ import {
     ShoppingBag,
     ArrowLeftRight,
     AlertTriangle,
+    Activity,
+    Truck,
+    FileText,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -58,7 +61,7 @@ const navItems: NavItem[] = [
         label: 'Malzemeler',
         icon: <Layers className="w-4 h-4" />,
         children: [
-            { label: 'Malzemeler', href: '/materials/raw', icon: <Layers className="w-4 h-4" /> },
+            { label: 'Malzeme Listesi', href: '/materials', icon: <Layers className="w-4 h-4" /> },
             { label: 'Ürün Listesi', href: '/materials/products', icon: <ShoppingBag className="w-4 h-4" /> },
             { label: 'Partiler', href: '/materials/batches', icon: <FlaskConical className="w-4 h-4" /> },
         ],
@@ -67,6 +70,19 @@ const navItems: NavItem[] = [
         label: 'Performans',
         href: '/performance',
         icon: <BarChart3 className="w-4 h-4" />,
+    },
+    {
+        label: 'Monitoring',
+        href: '/monitoring',
+        icon: <Activity className="w-4 h-4" />,
+    },
+    {
+        label: 'Satınalma',
+        icon: <Truck className="w-4 h-4" />,
+        children: [
+            { label: 'Tedarikçiler', href: '/purchasing/suppliers', icon: <Users className="w-4 h-4" /> },
+            { label: 'Satınalma Siparişleri', href: '/purchasing/orders', icon: <FileText className="w-4 h-4" /> },
+        ],
     },
     {
         label: 'Envanter',
@@ -81,8 +97,12 @@ const navItems: NavItem[] = [
     },
     {
         label: 'Satışlar',
-        href: '/sales',
         icon: <BarChart3 className="w-4 h-4" />,
+        children: [
+            { label: 'Satış Teklifleri', href: '/sales/quotations', icon: <BarChart3 className="w-4 h-4" /> },
+            { label: 'Satış Siparişleri', href: '/sales/orders', icon: <ShoppingBag className="w-4 h-4" /> },
+            { label: 'Teslimatlar', href: '/sales/deliveries', icon: <Truck className="w-4 h-4" /> },
+        ],
     },
     {
         label: 'Müşteriler',

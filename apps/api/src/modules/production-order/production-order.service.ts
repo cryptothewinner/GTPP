@@ -109,9 +109,48 @@ export class ProductionOrderService {
         if (dto.plannedStart) data.plannedStart = new Date(dto.plannedStart);
         if (dto.plannedEnd) data.plannedEnd = new Date(dto.plannedEnd);
 
+        // Try to find active routing if not provided
+        let routingId = dto.routingId;
+        if (!routingId) {
+            const activeRouting = await this.prisma.routing.findFirst({
+                where: { productId: dto.productId, isActive: true },
+                orderBy: { version: 'desc' },
+                include: { steps: true },
+            });
+            if (activeRouting) {
+                routingId = activeRouting.id;
+            }
+        }
+
+        const operationsData = [];
+        if (routingId) {
+            const routing = await this.prisma.routing.findUnique({
+                where: { id: routingId },
+                include: { steps: { orderBy: { stepNumber: 'asc' } } },
+            });
+
+            if (routing && routing.steps) {
+                for (const step of routing.steps) {
+                    operationsData.push({
+                        stepNumber: step.stepNumber,
+                        status: 'PENDING',
+                        notes: step.description,
+                        // Map standard times etc if needed
+                    });
+                }
+            }
+        }
+
+        const createData: any = {
+            ...data,
+            operations: {
+                create: operationsData
+            }
+        };
+
         return this.prisma.productionOrder.create({
-            data,
-            include: { product: true, recipe: true },
+            data: createData,
+            include: { product: true, recipe: true, operations: true },
         });
     }
 
@@ -230,6 +269,28 @@ export class ProductionOrderService {
                 plannedStart,
                 plannedEnd,
             },
+        });
+    }
+
+    async confirmOperation(orderId: string, operationId: string, dto: any) {
+        const operation = await this.prisma.productionOrderOperation.findUnique({
+            where: { id: operationId },
+        });
+
+        if (!operation || operation.productionOrderId !== orderId) {
+            throw new NotFoundException(`Operasyon bulunamadı.`);
+        }
+
+        return this.prisma.productionOrderOperation.update({
+            where: { id: operationId },
+            data: {
+                // Let's assume QC_PENDING is the next step after production confirmation
+                status: 'QC_PENDING',
+                producedQuantity: { increment: dto.producedQuantity },
+                wasteQuantity: { increment: dto.wasteQuantity || 0 },
+                actualEnd: new Date(),
+                notes: dto.notes ? (operation.notes ? operation.notes + '\n' + dto.notes : dto.notes) : operation.notes,
+            }
         });
     }
 }
