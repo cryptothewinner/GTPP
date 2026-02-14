@@ -43,20 +43,22 @@ export default function InventoryDashboardPage() {
     const [mounted, setMounted] = useState(false);
     useEffect(() => setMounted(true), []);
 
-    const { isLoading, materialsData, stocksData, productsData, suppliersData, expiredBatchCount, refetchAll } =
+    const { isLoading, isError, materialsData, stocksData, productsData, suppliersData, expiredBatchCount, refetchAll } =
         useInventoryDashboard();
 
-    const { data: materialsListResult } = useQuery({
+    const { data: materialsListResult, isError: materialsListError } = useQuery({
         queryKey: ['materials', 'list', { page: 1, pageSize: 500 }],
         queryFn: () => apiClient.get<any>('/materials?page=1&pageSize=500'),
         staleTime: 60 * 1000,
     });
 
-    const { data: recentBatchesResult } = useQuery({
+    const { data: recentBatchesResult, isError: recentBatchesError } = useQuery({
         queryKey: ['material-batches', 'list', { page: 1, pageSize: 10 }],
         queryFn: () => apiClient.get<any>('/material-batches?page=1&pageSize=10'),
         staleTime: 30 * 1000,
     });
+
+    const hasAnyError = isError || materialsListError || recentBatchesError;
 
     const criticalMaterials: any[] = (materialsListResult?.data ?? []).filter(
         (m: any) => m.minStockLevel > 0 && m.currentStock < m.minStockLevel,
@@ -112,6 +114,11 @@ export default function InventoryDashboardPage() {
             </header>
 
             <div className="flex-1 p-4 md:p-6 space-y-6 max-w-[1600px] mx-auto w-full">
+                {hasAnyError && (
+                    <div className="rounded border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                        Bazı envanter metrikleri yüklenemedi. Son bilinen değerler veya varsayılan değerler gösteriliyor.
+                    </div>
+                )}
 
                 {/* Metric Cards — 2×3 */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

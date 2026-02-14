@@ -21,8 +21,8 @@ export function useInventoryDashboard() {
     });
 
     const suppliers = useQuery({
-        queryKey: ['suppliers', 'summary'],
-        queryFn: () => apiClient.get<any>('/suppliers/summary'),
+        queryKey: ['business-partners', 'suppliers', 'summary'],
+        queryFn: () => apiClient.get<any>('/business-partners?role=SUPPLIER&page=1&pageSize=1'),
         staleTime: 60 * 1000,
     });
 
@@ -38,18 +38,34 @@ export function useInventoryDashboard() {
         products.isLoading ||
         suppliers.isLoading;
 
+    const isError =
+        materials.isError ||
+        stocks.isError ||
+        products.isError ||
+        suppliers.isError ||
+        batches.isError;
+
     const expiredBatchCount = (() => {
         const list: any[] = batches.data?.data ?? [];
         const today = new Date();
         return list.filter((b: any) => b.expiryDate && new Date(b.expiryDate) < today).length;
     })();
 
+    const suppliersData = {
+        totalSuppliers:
+            suppliers.data?.meta?.total ??
+            suppliers.data?.data?.meta?.total ??
+            suppliers.data?.totalSuppliers ??
+            0,
+    };
+
     return {
         isLoading,
-        materialsData: materials.data?.data,
-        stocksData: stocks.data?.data,
-        productsData: products.data?.data,
-        suppliersData: suppliers.data?.data,
+        isError,
+        materialsData: materials.data?.data ?? materials.data,
+        stocksData: stocks.data?.data ?? stocks.data,
+        productsData: products.data?.data ?? products.data,
+        suppliersData,
         expiredBatchCount,
         refetchAll: () => {
             materials.refetch();

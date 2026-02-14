@@ -5,6 +5,20 @@ import { PrismaService } from '../../prisma/prisma.service';
 export class DashboardService {
     constructor(private readonly prisma: PrismaService) { }
 
+    async getOverview() {
+        const [kpis, productionStatus, recentActivity] = await Promise.all([
+            this.getKpis(),
+            this.getProductionStatus(),
+            this.getRecentActivity(),
+        ]);
+
+        return {
+            kpis,
+            productionStatus,
+            recentActivity,
+        };
+    }
+
     async getKpis() {
         const [activeProducts, materialVarieties, releasedBatches, avgMargin] = await Promise.all([
             this.prisma.product.count({ where: { isActive: true } }),

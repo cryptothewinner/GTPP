@@ -32,6 +32,7 @@ import { SalesOrderModule } from './modules/sales-order/sales-order.module';
 import { OutboundDeliveryModule } from './modules/outbound-delivery/outbound-delivery.module';
 import { BillingModule } from './modules/billing/billing.module';
 import { AccountingModule } from './modules/accounting/accounting.module';
+import { SupplierModule } from './modules/supplier/supplier.module';
 
 @Module({
     imports: [
@@ -66,6 +67,7 @@ import { AccountingModule } from './modules/accounting/accounting.module';
         OutboundDeliveryModule,
         BillingModule,
         AccountingModule,
+        SupplierModule,
     ],
     controllers: [HealthController, PerformanceController],
     providers: [
