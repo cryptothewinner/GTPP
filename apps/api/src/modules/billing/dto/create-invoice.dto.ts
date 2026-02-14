@@ -21,8 +21,9 @@ export class CreateInvoiceDto {
     @IsString()
     invoiceDate?: string;
 
+    @IsOptional()
     @IsArray()
     @ValidateNested({ each: true })
     @Type(() => CreateInvoiceItemDto)
-    items: CreateInvoiceItemDto[];
+    items?: CreateInvoiceItemDto[];
 }
