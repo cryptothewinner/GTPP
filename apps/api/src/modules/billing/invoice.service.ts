@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { AccountingService } from '../accounting/accounting.service';
@@ -36,19 +36,52 @@ export class InvoiceService {
         });
         if (!delivery) throw new NotFoundException('Teslimat belgesi bulunamadı.');
 
+        const deliveryItemIds = delivery.items.map((item) => item.id);
+        if (deliveryItemIds.length > 0) {
+            const existingInvoice = await this.prisma.invoice.findFirst({
+                where: {
+                    items: {
+                        some: {
+                            outboundDeliveryItemId: {
+                                in: deliveryItemIds,
+                            },
+                        },
+                    },
+                },
+                select: {
+                    id: true,
+                    invoiceNumber: true,
+                },
+            });
+
+            if (existingInvoice) {
+                throw new ConflictException({
+                    message: 'Bu teslimat için zaten bir fatura mevcut.',
+                    existingInvoiceId: existingInvoice.id,
+                    existingInvoiceNumber: existingInvoice.invoiceNumber,
+                });
+            }
+        }
+
         const invoiceNumber = await this.generateInvoiceNumber();
         let totalNet = 0;
         const itemsData = [];
 
-        for (const itemDto of dto.items) {
+        const sourceItems = dto.items?.length
+            ? dto.items.map((itemDto) => ({
+                deliveryItemId: itemDto.deliveryItemId,
+                quantity: Number(itemDto.quantity),
+            }))
+            : delivery.items.map((deliveryItem) => ({
+                deliveryItemId: deliveryItem.id,
+                quantity: Number(deliveryItem.quantity),
+            }));
+
+        for (const itemDto of sourceItems) {
             const delItem = delivery.items.find(i => i.id === itemDto.deliveryItemId);
             if (!delItem) continue;
 
-            const salesOrderItem = await this.prisma.salesOrderItem.findUnique({
-                where: { id: delItem.salesOrderItemId }
-            });
-
-            const unitPrice = salesOrderItem ? Number(salesOrderItem.netPrice) : 0;
+            const unitPrice = delItem.salesOrderItem ? Number(delItem.salesOrderItem.netPrice) : 0;
             const netAmount = Number(itemDto.quantity) * unitPrice;
             totalNet += netAmount;
 
@@ -85,7 +118,11 @@ export class InvoiceService {
                     create: itemsData
                 }
             },
-            include: { items: true }
+            include: {
+                customer: true,
+                salesOrder: true,
+                items: true,
+            }
         });
     }
 
