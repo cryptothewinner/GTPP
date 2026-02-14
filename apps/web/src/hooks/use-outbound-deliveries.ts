@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
+import type { Invoice } from '@/hooks/use-invoices';
 
 export interface OutboundDeliveryItem {
     id: string;
@@ -68,6 +69,20 @@ export function usePostGoodsIssue() {
             qc.invalidateQueries({ queryKey: ['outbound-deliveries', 'detail', id] });
             qc.invalidateQueries({ queryKey: ['outbound-deliveries', 'list'] });
             qc.invalidateQueries({ queryKey: ['material-documents'] }); // Stock impact
+        },
+    });
+}
+
+export function useCreateInvoiceFromDelivery() {
+    const qc = useQueryClient();
+
+    return useMutation({
+        mutationFn: (deliveryId: string) =>
+            apiClient.post<Invoice>('/invoices', { deliveryId }),
+        onSuccess: (_, deliveryId) => {
+            qc.invalidateQueries({ queryKey: ['invoices', 'list'] });
+            qc.invalidateQueries({ queryKey: ['outbound-deliveries', 'detail', deliveryId] });
+            qc.invalidateQueries({ queryKey: ['outbound-deliveries', 'list'] });
         },
     });
 }

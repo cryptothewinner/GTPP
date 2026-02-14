@@ -2,11 +2,12 @@
 
 import React from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Truck, PackageCheck, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Truck, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { useOutboundDeliveryDetail, usePostGoodsIssue } from '@/hooks/use-outbound-deliveries';
+import { useOutboundDeliveryDetail, usePostGoodsIssue, useCreateInvoiceFromDelivery } from '@/hooks/use-outbound-deliveries';
+import { ApiError } from '@/lib/api-client';
 import { AgGridReact } from 'ag-grid-react';
 import { themeQuartz } from 'ag-grid-community';
 
@@ -18,14 +19,50 @@ export default function OutboundDeliveryDetailPage() {
 
     const { data: delivery, isLoading } = useOutboundDeliveryDetail(id);
     const pgiMutation = usePostGoodsIssue();
+    const createInvoiceMutation = useCreateInvoiceFromDelivery();
 
     const handlePostGoodsIssue = async () => {
         if (!confirm('Bu teslimat için Mal Çıkışı (PGI) yapmak istediğinize emin misiniz? Stoklar güncellenecektir.')) return;
         try {
             await pgiMutation.mutateAsync(id);
             toast({ title: 'Başarılı', description: 'Mal çıkışı başarıyla yapıldı.' });
-        } catch (error: any) {
-            toast({ title: 'Hata', description: error?.response?.data?.message || 'Mal çıkışı sırasında bir hata oluştu.', variant: 'destructive' });
+        } catch (error) {
+            const message = error instanceof ApiError ? error.message : 'Mal çıkışı sırasında bir hata oluştu.';
+            toast({ title: 'Hata', description: message, variant: 'destructive' });
+        }
+    };
+
+    const handleCreateInvoice = async () => {
+        try {
+            const invoice = await createInvoiceMutation.mutateAsync(id);
+            toast({ title: 'Başarılı', description: 'Fatura başarıyla oluşturuldu.' });
+            router.push(`/sales/invoices/${invoice.id}`);
+        } catch (error) {
+            if (error instanceof ApiError && error.status === 409) {
+                const conflictBody = error.body as {
+                    message?: string;
+                    existingInvoiceId?: string;
+                    existingInvoiceNumber?: string;
+                };
+                const existingInvoiceId = conflictBody?.existingInvoiceId;
+
+                toast({
+                    title: 'Fatura zaten mevcut',
+                    description: conflictBody?.existingInvoiceNumber
+                        ? `${conflictBody.message || 'Bu teslimat için fatura zaten oluşturulmuş.'} ${conflictBody.existingInvoiceNumber} açılıyor...`
+                        : conflictBody?.message || 'Bu teslimat için fatura zaten oluşturulmuş.',
+                    variant: 'destructive',
+                });
+
+                if (existingInvoiceId) {
+                    router.push(`/sales/invoices/${existingInvoiceId}`);
+                }
+
+                return;
+            }
+
+            const message = error instanceof ApiError ? error.message : 'Fatura oluşturulurken bir hata oluştu.';
+            toast({ title: 'Hata', description: message, variant: 'destructive' });
         }
     };
 
@@ -33,6 +70,7 @@ export default function OutboundDeliveryDetailPage() {
     if (!delivery) return <div className="p-6">Teslimat bulunamadı</div>;
 
     const isShipped = delivery.status === 'Shipped' || delivery.status === 'ISSUED';
+    const canCreateInvoice = isShipped;
 
     const itemDefs: any[] = [
         { field: 'material.code', headerName: 'MALZEME KODU', width: 140 },
@@ -77,6 +115,14 @@ export default function OutboundDeliveryDetailPage() {
                             {pgiMutation.isPending ? 'İşleniyor...' : 'Mal Çıkışı Yap (PGI)'}
                         </Button>
                     )}
+                    <Button
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                        onClick={handleCreateInvoice}
+                        disabled={!canCreateInvoice || createInvoiceMutation.isPending}
+                    >
+                        <FileText className="w-4 h-4 mr-2" />
+                        {createInvoiceMutation.isPending ? 'İşleniyor...' : 'Fatura Oluştur'}
+                    </Button>
                 </div>
             </header>
 
