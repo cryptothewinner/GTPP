@@ -27,6 +27,8 @@ export interface SalesOrder {
     totalTaxAmount: number;
     totalGrossAmount: number;
     status: string;
+    deliveryStatus?: string;
+    billingStatus?: string;
     customer?: { id: string; name1: string; bpNumber: string };
     salesOrg?: { id: string; code: string; name: string };
     items?: SalesOrderItem[];

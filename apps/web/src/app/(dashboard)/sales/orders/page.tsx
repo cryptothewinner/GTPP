@@ -24,6 +24,19 @@ const statusColors: Record<string, string> = {
     BILLED: 'bg-purple-100 text-purple-700',
 };
 
+const deliveryStatusLabels: Record<string, string> = {
+    PENDING: 'Beklemede',
+    PARTIAL: 'Kısmi',
+    FULL: 'Tamamlandı',
+};
+
+const billingStatusLabels: Record<string, string> = {
+    PENDING: 'Beklemede',
+    PARTIAL: 'Kısmi',
+    BILLED: 'Faturalandı',
+    CANCELLED: 'İptal',
+};
+
 export default function SalesOrdersPage() {
     const router = useRouter();
     const gridRef = useRef<AgGridReact>(null);
@@ -75,6 +88,26 @@ export default function SalesOrdersPage() {
                         </span>
                     </div>
                 ),
+            },
+            {
+                field: 'deliveryStatus',
+                headerName: 'TESLİMAT DURUMU',
+                width: 160,
+                headerClass: 'text-[11px] font-bold text-slate-500 uppercase tracking-wider',
+                valueFormatter: (params) => {
+                    if (!params.value) return '—';
+                    return deliveryStatusLabels[params.value] || params.value;
+                },
+            },
+            {
+                field: 'billingStatus',
+                headerName: 'FATURA DURUMU',
+                width: 160,
+                headerClass: 'text-[11px] font-bold text-slate-500 uppercase tracking-wider',
+                valueFormatter: (params) => {
+                    if (!params.value) return '—';
+                    return billingStatusLabels[params.value] || params.value;
+                },
             },
             {
                 field: 'orderDate',
