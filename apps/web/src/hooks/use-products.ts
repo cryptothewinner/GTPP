@@ -62,3 +62,23 @@ export function useUpdateProduct() {
         },
     });
 }
+
+export function useCreateProduct() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (data: Record<string, any>) =>
+            apiClient.post<ProductDetailResponse>('/products', data),
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ['products', 'list'] });
+            qc.invalidateQueries({ queryKey: ['products', 'summary'] });
+        },
+    });
+}
+
+export function useProductSummary() {
+    return useQuery({
+        queryKey: ['products', 'summary'],
+        queryFn: () => apiClient.get<{ success: boolean; data: any }>('/products/summary'),
+        staleTime: 60 * 1000,
+    });
+}

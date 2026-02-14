@@ -3,6 +3,8 @@ import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { PrismaService } from './prisma/prisma.service';
 import { PerformanceMetricsService } from './modules/performance/performance-metrics.service';
+import { Request, Response, NextFunction } from 'express';
+import { Prisma } from '@prisma/client';
 
 async function bootstrap() {
     const app = await NestFactory.create(AppModule);
@@ -12,8 +14,8 @@ async function bootstrap() {
         : [
             'http://localhost:3000',
             'http://127.0.0.1:3000',
-            'http://localhost:4000',
-            'http://127.0.0.1:4000',
+            'http://localhost:3001',
+            'http://127.0.0.1:3001',
         ];
 
     app.enableCors({
@@ -26,7 +28,7 @@ async function bootstrap() {
         new ValidationPipe({
             transform: true,
             whitelist: true,
-            forbidNonWhitelisted: false,
+            forbidNonWhitelisted: true,
             transformOptions: {
                 enableImplicitConversion: true,
             },
@@ -38,7 +40,7 @@ async function bootstrap() {
     const perf = app.get(PerformanceMetricsService);
     const prisma = app.get(PrismaService);
 
-    app.use((req, res, next) => {
+    app.use((req: Request, res: Response, next: NextFunction) => {
         const start = performance.now();
         res.on('finish', () => {
             const durationMs = performance.now() - start;
@@ -53,19 +55,19 @@ async function bootstrap() {
         next();
     });
 
-    prisma.$on('query' as any, (event: any) => {
-        const target = String(event.target || 'raw.raw');
-        const [model = 'raw', action = 'raw'] = target.split('.');
+    prisma.$on('query', (event: Prisma.QueryEvent) => {
+        const [model = 'raw', action = 'raw'] = event.target.split('.');
         perf.recordPrisma({
             model,
             action,
-            durationMs: event.duration ?? 0,
+            durationMs: event.duration,
             timestamp: Date.now(),
         });
     });
 
-    const port = process.env.API_PORT || 4000;
+    const port = process.env.API_PORT || 3001;
     await app.listen(port);
     console.log(`🚀 API running on http://localhost:${port}`);
 }
 bootstrap();
+

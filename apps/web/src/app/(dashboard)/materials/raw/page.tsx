@@ -294,6 +294,9 @@ export default function RawMaterialsPage() {
     /* ---------- client-side data fetch ---------- */
     const [rowData, setRowData] = useState<MaterialRow[]>([]);
     const [isLoadingGrid, setIsLoadingGrid] = useState(true);
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => { setMounted(true); }, []);
 
     const fetchMaterials = useCallback(async () => {
         try {
@@ -495,35 +498,41 @@ export default function RawMaterialsPage() {
                     </div>
 
                     {/* AG Grid */}
-                    <div style={{ height: '500px', width: '100%' }}>
-                        <div style={{ height: '100%', width: '100%' }}>
-                            <AgGridReact
-                                theme={themeQuartz}
-                                ref={gridRef}
-                                getRowId={getRowId}
-                                columnDefs={columnDefs}
-                                defaultColDef={{
-                                    sortable: true,
-                                    resizable: true,
-                                    filter: true,
-                                    floatingFilter: false,
-                                    flex: 0,
-                                }}
-                                rowData={rowData}
-                                rowHeight={42}
-                                headerHeight={32}
-                                onGridReady={onGridReady}
-                                onRowDoubleClicked={onRowDoubleClicked}
-                                animateRows={true}
-                                rowSelection={{
-                                    mode: 'singleRow',
-                                    checkboxes: false,
-                                }}
-                                overlayLoadingTemplate='<span class="ag-overlay-loading-center">Yükleniyor...</span>'
-                                overlayNoRowsTemplate='<span class="ag-overlay-no-rows-center">Kayıt bulunamadı</span>'
-                            />
+                    {mounted ? (
+                        <div style={{ height: '500px', width: '100%' }}>
+                            <div style={{ height: '100%', width: '100%' }}>
+                                <AgGridReact
+                                    theme={themeQuartz}
+                                    ref={gridRef}
+                                    getRowId={getRowId}
+                                    columnDefs={columnDefs}
+                                    defaultColDef={{
+                                        sortable: true,
+                                        resizable: true,
+                                        filter: true,
+                                        floatingFilter: false,
+                                        flex: 0,
+                                    }}
+                                    rowData={rowData}
+                                    rowHeight={42}
+                                    headerHeight={32}
+                                    onGridReady={onGridReady}
+                                    onRowDoubleClicked={onRowDoubleClicked}
+                                    animateRows={true}
+                                    rowSelection={{
+                                        mode: 'singleRow',
+                                        checkboxes: false,
+                                    }}
+                                    overlayLoadingTemplate='<span class="ag-overlay-loading-center">Yükleniyor...</span>'
+                                    overlayNoRowsTemplate='<span class="ag-overlay-no-rows-center">Kayıt bulunamadı</span>'
+                                />
+                            </div>
                         </div>
-                    </div>
+                    ) : (
+                        <div style={{ height: '500px' }} className="flex items-center justify-center">
+                            <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+                        </div>
+                    )}
                 </div>
             </div>
 

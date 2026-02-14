@@ -19,6 +19,8 @@ import {
     FlaskConical,
     Layers,
     ShoppingBag,
+    ArrowLeftRight,
+    AlertTriangle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -49,6 +51,7 @@ const navItems: NavItem[] = [
             { label: 'Üretim Planlama', href: '/production/planning', icon: <Factory className="w-4 h-4" /> },
             { label: 'Reçeteler', href: '/production/recipes', icon: <BookOpen className="w-4 h-4" /> },
             { label: 'Partiler', href: '/production/batches', icon: <FlaskConical className="w-4 h-4" /> },
+            { label: 'Tanımlamalar', href: '/production/definitions', icon: <Settings className="w-4 h-4" /> },
         ],
     },
     {
@@ -67,8 +70,14 @@ const navItems: NavItem[] = [
     },
     {
         label: 'Envanter',
-        href: '/inventory',
         icon: <Package className="w-4 h-4" />,
+        children: [
+            { label: 'Genel Bakış', href: '/inventory', icon: <LayoutDashboard className="w-4 h-4" /> },
+            { label: 'Ürün Stokları', href: '/inventory/products', icon: <ShoppingBag className="w-4 h-4" /> },
+            { label: 'Malzeme Stokları', href: '/inventory/materials', icon: <Layers className="w-4 h-4" /> },
+            { label: 'Stok Hareketleri', href: '/inventory/movements', icon: <ArrowLeftRight className="w-4 h-4" /> },
+            { label: 'Düşük Stok Uyarıları', href: '/inventory/alerts', icon: <AlertTriangle className="w-4 h-4" /> },
+        ],
     },
     {
         label: 'Satışlar',

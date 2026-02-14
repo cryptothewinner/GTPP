@@ -13,6 +13,8 @@ import { ProductionOrderModule } from './modules/production-order/production-ord
 import { ProductionBatchModule } from './modules/production-batch/production-batch.module';
 import { MaterialBatchModule } from './modules/material-batch/material-batch.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { StockMovementModule } from './modules/stock-movement/stock-movement.module';
+import { ProductionStructureModule } from './modules/production-structure/production-structure.module';
 import { HealthController } from './health.controller';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
@@ -39,6 +41,8 @@ import { PerformanceMetricsService } from './modules/performance/performance-met
         ProductionBatchModule,
         MaterialBatchModule,
         DashboardModule,
+        StockMovementModule,
+        ProductionStructureModule,
     ],
     controllers: [HealthController, PerformanceController],
     providers: [

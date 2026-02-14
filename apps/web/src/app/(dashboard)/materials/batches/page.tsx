@@ -37,6 +37,9 @@ export default function MaterialBatchesPage() {
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [sheetOpen, setSheetOpen] = useState(false);
     const [createBatchOpen, setCreateBatchOpen] = useState(false);
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => { setMounted(true); }, []);
 
     const { data, isLoading } = useMaterialBatchList({
         page,
@@ -206,31 +209,37 @@ export default function MaterialBatchesPage() {
                 </div>
             </div>
 
-            <div className="bg-white rounded border border-lightning-border shadow-sm min-h-[600px] flex flex-col overflow-hidden">
-                <div style={{ height: '600px', width: '100%' }}>
-                    <div style={{ height: '100%', width: '100%' }}>
-                        <AgGridReact
-                            theme={themeQuartz}
-                            columnDefs={colDefs}
-                            rowData={allBatches}
-                            pagination={true}
-                            paginationPageSize={20}
-                            rowHeight={42}
-                            headerHeight={32}
-                            defaultColDef={{
-                                sortable: true,
-                                filter: true,
-                                resizable: true,
-                                floatingFilter: false,
-                            }}
-                            rowSelection={{ mode: 'singleRow' }}
-                            onRowDoubleClicked={onRowDoubleClicked}
-                            animateRows={true}
-                            overlayLoadingTemplate='<span class="ag-overlay-loading-center">Yükleniyor...</span>'
-                            overlayNoRowsTemplate='<span class="ag-overlay-no-rows-center">Kayıt bulunamadı</span>'
-                        />
+            <div className="bg-white rounded border border-lightning-border shadow-sm flex flex-col overflow-hidden">
+                {mounted ? (
+                    <div style={{ height: '600px', width: '100%' }}>
+                        <div style={{ height: '100%', width: '100%' }}>
+                            <AgGridReact
+                                theme={themeQuartz}
+                                columnDefs={colDefs}
+                                rowData={allBatches}
+                                pagination={true}
+                                paginationPageSize={20}
+                                rowHeight={42}
+                                headerHeight={32}
+                                defaultColDef={{
+                                    sortable: true,
+                                    filter: true,
+                                    resizable: true,
+                                    floatingFilter: false,
+                                }}
+                                rowSelection={{ mode: 'singleRow' }}
+                                onRowDoubleClicked={onRowDoubleClicked}
+                                animateRows={true}
+                                overlayLoadingTemplate='<span class="ag-overlay-loading-center">Yükleniyor...</span>'
+                                overlayNoRowsTemplate='<span class="ag-overlay-no-rows-center">Kayıt bulunamadı</span>'
+                            />
+                        </div>
                     </div>
-                </div>
+                ) : (
+                    <div style={{ height: '600px' }} className="flex items-center justify-center">
+                        <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+                    </div>
+                )}
             </div>
 
             <MaterialBatchDetailSheet

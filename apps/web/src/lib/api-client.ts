@@ -1,9 +1,9 @@
 import { recordClientApiMetric } from './performance-metrics';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 
 if (!process.env.NEXT_PUBLIC_API_URL && typeof window !== 'undefined') {
-    console.warn('[api-client] NEXT_PUBLIC_API_URL is not set. Falling back to http://localhost:4000/api/v1');
+    console.warn('[api-client] NEXT_PUBLIC_API_URL is not set. Falling back to http://localhost:3001/api/v1');
 }
 
 interface RequestOptions extends Omit<RequestInit, 'body'> {

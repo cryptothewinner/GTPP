@@ -129,7 +129,136 @@ model EventOutbox {
   @@map("event_outbox")
 }
 
-// ─── Üretim Yönetim Sistemi ────────────────────────────────────────
+// ─── Organizasyon ve Tesis Yönetimi ────────────────────────────────
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  taxNumber String?  @map("tax_number")
+  address   String?
+  logo      String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  sites ProductionSite[]
+
+  @@map("organizations")
+}
+
+model ProductionSite {
+  id             String       @id @default(cuid())
+  organizationId String       @map("organization_id")
+  name           String
+  address        String?
+  licenseNumber  String?      @map("license_number")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  organization Organization  @relation(fields: [organizationId], references: [id])
+  workStations WorkStation[]
+
+  @@map("production_sites")
+}
+
+enum WorkStationType {
+  WEIGHING
+  GRANULATION
+  COMPRESSION
+  COATING
+  PACKAGING
+  QC
+  OTHER
+}
+
+enum CleanroomGrade {
+  GRADE_A
+  GRADE_B
+  GRADE_C
+  GRADE_D
+  CNC
+}
+
+enum WorkStationStatus {
+  ACTIVE
+  MAINTENANCE
+  CLEANING
+  VALIDATION_PENDING
+  INACTIVE
+}
+
+model WorkStation {
+  id             String            @id @default(cuid())
+  siteId         String            @map("site_id")
+  name           String
+  code           String            @unique
+  type           WorkStationType   @default(OTHER)
+  cleanroomGrade CleanroomGrade    @default(GRADE_D)
+  status         WorkStationStatus @default(ACTIVE)
+  dailyCapacity  Decimal           @default(0) @map("daily_capacity") @db.Decimal(18, 4)
+  hourlyRate     Decimal           @default(0) @map("hourly_rate") @db.Decimal(18, 4)
+  metadata       Json?
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+
+  site       ProductionSite             @relation(fields: [siteId], references: [id])
+  operations ProductionOrderOperation[]
+
+  @@map("work_stations")
+}
+
+// ─── Üretim Planlama ve Rota ───────────────────────────────────────
+
+enum ProductionPlanStatus {
+  DRAFT
+  APPROVED
+  ACTIVE
+  CLOSED
+}
+
+model ProductionPlan {
+  id        String               @id @default(cuid())
+  code      String               @unique
+  name      String
+  startDate DateTime             @map("start_date")
+  endDate   DateTime             @map("end_date")
+  status    ProductionPlanStatus @default(DRAFT)
+  createdAt DateTime             @default(now()) @map("created_at")
+  updatedAt DateTime             @updatedAt @map("updated_at")
+
+  productionOrders ProductionOrder[]
+
+  @@map("production_plans")
+}
+
+model Routing {
+  id        String   @id @default(cuid())
+  productId String   @map("product_id")
+  version   Int      @default(1)
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  product Product       @relation(fields: [productId], references: [id])
+  steps   RoutingStep[]
+
+  @@map("routings")
+}
+
+model RoutingStep {
+  id              String          @id @default(cuid())
+  routingId       String          @map("routing_id")
+  stepNumber      Int             @map("step_number")
+  workStationType WorkStationType @map("work_station_type")
+  description     String?
+  standardTime    Int             @default(0) @map("standard_time") // Seconds per unit
+  setupTime       Int             @default(0) @map("setup_time") // Seconds
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+
+  routing Routing @relation(fields: [routingId], references: [id], onDelete: Cascade)
+
+  @@map("routing_steps")
+}
 
 enum ProductionOrderStatus {
   DRAFT
@@ -260,6 +389,7 @@ model Product {
 
   recipes          Recipe[]
   productionOrders ProductionOrder[]
+  routings         Routing[]
 
   @@index([isActive])
   @@map("products")
@@ -334,9 +464,34 @@ model ProductionOrder {
   recipe  Recipe             @relation(fields: [recipeId], references: [id])
   batches ProductionBatch[]
 
+  productionPlanId String?         @map("production_plan_id")
+  productionPlan   ProductionPlan? @relation(fields: [productionPlanId], references: [id])
+
+  operations ProductionOrderOperation[]
+
   @@index([status])
   @@index([plannedStart])
   @@map("production_orders")
+}
+
+model ProductionOrderOperation {
+  id                String            @id @default(cuid())
+  productionOrderId String            @map("production_order_id")
+  workStationId     String?           @map("work_station_id")
+  stepNumber        Int               @map("step_number")
+  status            BatchStatus       @default(PENDING) // Reusing BatchStatus for simplicity or create OperationStatus
+  actualStart       DateTime?         @map("actual_start")
+  actualEnd         DateTime?         @map("actual_end")
+  producedQuantity  Decimal           @default(0) @map("produced_quantity") @db.Decimal(18, 4)
+  wasteQuantity     Decimal           @default(0) @map("waste_quantity") @db.Decimal(18, 4)
+  notes             String?
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+
+  productionOrder ProductionOrder @relation(fields: [productionOrderId], references: [id], onDelete: Cascade)
+  workStation     WorkStation?    @relation(fields: [workStationId], references: [id])
+
+  @@map("production_order_operations")
 }
 
 model ProductionBatch {
@@ -364,6 +519,43 @@ model ProductionBatch {
   @@index([manufacturingDate])
   @@index([createdAt])
   @@map("production_batches")
+}
+
+enum StockMovementType {
+  INBOUND
+  OUTBOUND
+  PRODUCTION_IN
+  PRODUCTION_OUT
+  ADJUSTMENT
+  TRANSFER
+  RETURN
+  WASTE
+}
+
+model StockMovement {
+  id              String            @id @default(cuid())
+  movementNumber  String            @unique @map("movement_number")
+  type            StockMovementType
+  materialId      String?           @map("material_id")
+  productId       String?           @map("product_id")
+  materialBatchId String?           @map("material_batch_id")
+  quantity        Decimal           @db.Decimal(18, 4)
+  unit            String            @default("Kg")
+  previousStock   Decimal?          @map("previous_stock") @db.Decimal(18, 4)
+  newStock        Decimal?          @map("new_stock") @db.Decimal(18, 4)
+  unitPrice       Decimal?          @map("unit_price") @db.Decimal(18, 4)
+  totalValue      Decimal?          @map("total_value") @db.Decimal(18, 4)
+  referenceType   String?           @map("reference_type")
+  referenceId     String?           @map("reference_id")
+  description     String?
+  performedBy     String?           @map("performed_by")
+  createdAt       DateTime          @default(now()) @map("created_at")
+
+  @@index([type])
+  @@index([materialId])
+  @@index([productId])
+  @@index([createdAt])
+  @@map("stock_movements")
 }
 
 model ProductionBatchConsumption {

@@ -1,80 +1,116 @@
-# SepeNatural 2026 - ERP Integration & Monitoring System
+# SepeERP - Next Generation Manufacturing & Resource Planning
 
-A state-of-the-art, metadata-driven monorepo for supplement manufacturing operations, integrating NestJS, Next.js, and .NET 8.
+![SepeERP Banner](https://via.placeholder.com/1200x400?text=SepeERP+Manufacturing+Intelligence)
 
-## 🚀 Overview
+**SepeERP** is a modern, high-performance Enterprise Resource Planning (ERP) system tailored for the manufacturing industry, specifically designed for pharmaceutical and supplement production. It bridges the gap between traditional ERP functions and modern, real-time production monitoring, providing a seamless experience from raw material intake to finished product dispatch.
 
-SepeNatural 2026 is designed to streamline manufacturing data flow between Netsis ERP and a modern monitoring interface. It uses a **Metadata Engine** to dynamically define entities and forms, ensuring flexibility and rapid deployment of new production modules.
+## 🚀 Key Features
 
-## 🛠 Tech Stack
+### 🏭 Production Management
+- **Dynamic Production Structure:** Flexible definition of Organizations, Production Sites, and Work Stations.
+- **Recipe Management:** Version-controlled recipes with detailed bill of materials (BOM), wastage calculations, and cost analysis.
+- **Production Planning:** Drag-and-drop production scheduling with Gantt charts and capacity planning.
+- **Batch Tracking:** End-to-end traceability of production batches (User & System generated).
 
-- **Monorepo Management:** [Turborepo](https://turbo.build/) & [pnpm](https://pnpm.io/)
-- **Backend (API):** [NestJS](https://nestjs.com/) (TypeScript)
-- **Frontend (Web):** [Next.js 15](https://nextjs.org/) (React 19, TailwindCSS)
-- **Integration Layer:** [.NET 8](https://dotnet.microsoft.com/) Bridge for Netsis ERP
+### 🧪 Quality Assurance (QA/QC)
+- **Integrated QC Workflows:** Built-in status transitions for Quality Control (Pending -> QC -> Released/Rejected).
+- **Cleanroom Standards:** Support for Grade A/B/C/D and CNC zone classifications.
+- **Electronic Batch Records (EBR):** Digital tracking of all manufacturing steps and environmental conditions.
+
+### 📦 Inventory & Material Management
+- **Warehouse Management:** Multi-warehouse and bin location tracking.
+- **Material Classification:** Distinct handling for Raw Materials, Packaging, Semi-Finished, and Finished Goods.
+- **Stock Movements:** Real-time tracking of goods receipt, issuances, transfers, and consumption.
+
+### 📊 Dashboard & Analytics
+- **Real-time Monitoring:** KPI dashboards for OEE (Overall Equipment Effectiveness), production output, and efficiency.
+- **Financial Insights:** Real-time cost calculation per batch based on actual consumption.
+
+## 🛠 Technology Stack
+
+This project is built as a **Turborepo** monorepo, ensuring high performance and scalability.
+
+- **Frontend:** [Next.js 15](https://nextjs.org/) (App Router), [React 19](https://react.dev/), [Tailwind CSS](https://tailwindcss.com/)
+- **Backend:** [NestJS](https://nestjs.com/) (Modular Architecture)
 - **Database:** [PostgreSQL](https://www.postgresql.org/) with [Prisma ORM](https://www.prisma.io/)
-- **Infrastructure:** [Docker](https://www.docker.com/) & [Docker Compose](https://docs.docker.com/compose/)
+- **Integration:** .NET 8 Bridge for legacy ERP (Netsis) sync
+- **DevOps:** [Docker](https://www.docker.com/) & Docker Compose for containerized development
 
-## 📁 Project Structure
+## 📂 Project Structure
 
 ```text
 .
 ├── apps/
-│   ├── api/            # NestJS Backend API
-│   ├── web/            # Next.js Frontend Web App
-│   └── integration/    # .NET 8 Netsis Bridge Service
+│   ├── web/            # Next.js Admin Dashboard & Production Interfaces
+│   ├── api/            # NestJS REST API & Business Logic
+│   └── integration/    # .NET 8 Service for External ERP Sync
 ├── packages/
-│   └── shared/         # Shared DTOs, Enums, and Logic (@sepenatural/shared)
-├── docker/             # Docker configuration files
-└── turbo.json          # Turborepo pipeline configuration
+│   ├── shared/         # Shared Types, DTOs, and Utilities
+│   ├── ui/             # Design System & UI Components
+│   └── config/         # Shared Configuration (ESLint, TSConfig)
+├── docker/             # Docker Composition & Environment Configs
+└── turbo.json          # Build System Configuration
 ```
 
-## ⚙️ Prerequisites
+## ⚡ Getting Started
 
+### Prerequisites
 - **Node.js:** v20+
 - **pnpm:** v9+
-- **.NET SDK:** 8.0+
-- **Docker & Docker Compose**
+- **Docker Desktop:** Running based on your OS
+- **Git**
 
-## 🏁 Getting Started
+### Installation
 
-### 1. Installation
+1.  **Clone the repository:**
+    ```bash
+    git clone https://github.com/cryptothewinner/SepeERP.git
+    cd SepeERP
+    ```
 
-Install dependencies from the root directory:
+2.  **Install dependencies:**
+    ```bash
+    pnpm install
+    ```
 
-```bash
-pnpm install
-```
+3.  **Environment Setup:**
+    ```bash
+    cp .env.example .env
+    cp apps/api/.env.example apps/api/.env
+    ```
+    *Update the `.env` files with your database credentials.*
 
-### 2. Environment Setup
+### Running the Application
 
-Copy example env files and update with your credentials:
+1.  **Start Infrastructure (PostgreSQL & Redis):**
+    ```bash
+    pnpm db:up
+    # OR directly via docker
+    docker-compose -f docker/docker-compose.yml up -d
+    ```
 
-```bash
-cp .env.example .env
-cp apps/api/.env.example apps/api/.env
-```
+2.  **Initialize Database:**
+    ```bash
+    pnpm db:push   # Push schema to DB
+    pnpm db:seed   # Populate initial data (Users, References, Production Structure)
+    ```
 
-### 3. Database Initialization
+3.  **Start Development Server:**
+    ```bash
+    pnpm dev
+    ```
 
-Start the database and run migrations:
+- **Web App:** [http://localhost:3000](http://localhost:3000)
+- **API Swagger:** [http://localhost:3001/api](http://localhost:3001/api)
 
-```bash
-docker-compose -f docker/docker-compose.yml up -d
-pnpm run db:push
-pnpm run db:seed
-```
+## 🤝 Contributing
 
-### 4. Running the Project
+1.  Fork the repository.
+2.  Create a feature branch (`git checkout -b feature/amazing-feature`).
+3.  Commit your changes (`git commit -m 'Add some amazing feature'`).
+4.  Push to the branch (`git push origin feature/amazing-feature`).
+5.  Open a Pull Request.
 
-Launch all services in development mode:
+## 📄 License
 
-```bash
-pnpm dev
-```
-
-For a full monorepo production build (`pnpm run build`), ensure **.NET SDK 8+** is installed because the `apps/integration` package runs `dotnet build` during the Turbo pipeline.
-
-## 📜 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+Distributed under the MIT License. See `LICENSE` for more information.

@@ -97,3 +97,50 @@ export function useCompleteProductionOrder() {
         },
     });
 }
+export interface MaterialCheckResponse {
+    isAvailable: boolean;
+    missingItems: Array<{
+        materialId: string;
+        materialName: string;
+        materialCode: string;
+        required: number;
+        available: number;
+        missing: number;
+        unit: string;
+    }>;
+    orderId: string;
+    orderNumber: string;
+}
+
+export function useMaterialCheck(id: string | null) {
+    return useQuery({
+        queryKey: ['production-orders', 'material-check', id],
+        queryFn: () => apiClient.get<MaterialCheckResponse>(`/production-orders/${id}/availability`),
+        enabled: !!id,
+        staleTime: 1000 * 60, // 1 minute
+    });
+}
+
+export function useRescheduleProductionOrder() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: ({ id, plannedStart, plannedEnd }: { id: string; plannedStart: Date; plannedEnd: Date }) =>
+            apiClient.patch<any>(`/production-orders/${id}/reschedule`, {
+                plannedStart: plannedStart.toISOString(),
+                plannedEnd: plannedEnd.toISOString(),
+            }),
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ['production-orders'] });
+        },
+    });
+}
+
+export function useAllProductionOrders() {
+    return useQuery({
+        queryKey: ['production-orders', 'all'],
+        queryFn: async () => {
+            const response = await apiClient.get<any>(`/production-orders?page=1&pageSize=1000`);
+            return response.data?.rows ?? response.data ?? [];
+        },
+    });
+}

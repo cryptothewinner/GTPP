@@ -103,7 +103,7 @@ export function useCreateMaterialBatch() {
 
     return useMutation({
         mutationFn: async (data: any) => {
-            const response = await apiClient.post('/material-batches', data);
+            const response = await apiClient.post<DetailResponse>('/material-batches', data);
             return response.data;
         },
         onSuccess: () => {

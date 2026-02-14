@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Param, Body, Query, ParseIntPipe, DefaultValuePipe } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Param, Body, Query, ParseIntPipe, DefaultValuePipe, BadRequestException } from '@nestjs/common';
 import { ProductionOrderService } from './production-order.service';
 import { CreateProductionOrderDto } from './dto/create-production-order.dto';
 import { UpdateProductionOrderDto } from './dto/update-production-order.dto';
@@ -54,5 +54,21 @@ export class ProductionOrderController {
     async complete(@Param('id') id: string) {
         const order = await this.productionOrderService.complete(id);
         return { success: true, data: order };
+    }
+    @Get(':id/availability')
+    async checkAvailability(@Param('id') id: string) {
+        return this.productionOrderService.checkMaterialAvailability(id);
+    }
+
+    @Patch(':id/reschedule')
+    async reschedule(@Param('id') id: string, @Body() dto: UpdateProductionOrderDto) {
+        if (!dto.plannedStart || !dto.plannedEnd) {
+            throw new BadRequestException('Başlangıç ve bitiş tarihleri zorunludur.');
+        }
+        return this.productionOrderService.reschedule(
+            id,
+            new Date(dto.plannedStart),
+            new Date(dto.plannedEnd),
+        );
     }
 }

@@ -75,3 +75,58 @@ export function useUpdateRecipe() {
         },
     });
 }
+
+export function useRecipeSummary() {
+    return useQuery({
+        queryKey: ['recipes', 'summary'],
+        queryFn: () => apiClient.get<any>('/recipes/summary'),
+        staleTime: 30 * 1000,
+    });
+}
+
+export function useAddRecipeItem() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: ({ recipeId, data }: { recipeId: string; data: Record<string, any> }) =>
+            apiClient.post<any>(`/recipes/${recipeId}/items`, data),
+        onSuccess: (_, v) => {
+            qc.invalidateQueries({ queryKey: ['recipes', 'detail', v.recipeId] });
+            qc.invalidateQueries({ queryKey: ['recipes', 'list'] });
+        },
+    });
+}
+
+export function useUpdateRecipeItem() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: ({ recipeId, itemId, data }: { recipeId: string; itemId: string; data: Record<string, any> }) =>
+            apiClient.patch<any>(`/recipes/${recipeId}/items/${itemId}`, data),
+        onSuccess: (_, v) => {
+            qc.invalidateQueries({ queryKey: ['recipes', 'detail', v.recipeId] });
+        },
+    });
+}
+
+export function useRemoveRecipeItem() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: ({ recipeId, itemId }: { recipeId: string; itemId: string }) =>
+            apiClient.delete<any>(`/recipes/${recipeId}/items/${itemId}`),
+        onSuccess: (_, v) => {
+            qc.invalidateQueries({ queryKey: ['recipes', 'detail', v.recipeId] });
+            qc.invalidateQueries({ queryKey: ['recipes', 'list'] });
+        },
+    });
+}
+
+export function useRecalculateCost() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (recipeId: string) =>
+            apiClient.get<any>(`/recipes/${recipeId}/cost`),
+        onSuccess: (_, recipeId) => {
+            qc.invalidateQueries({ queryKey: ['recipes', 'detail', recipeId] });
+            qc.invalidateQueries({ queryKey: ['recipes', 'list'] });
+        },
+    });
+}

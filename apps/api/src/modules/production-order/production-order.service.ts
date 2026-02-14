@@ -167,4 +167,69 @@ export class ProductionOrderService {
             totalPlannedQuantity: Number(totalPlannedResult._sum.plannedQuantity || 0),
         };
     }
+    async checkMaterialAvailability(id: string) {
+        const order = await this.prisma.productionOrder.findUnique({
+            where: { id },
+            include: {
+                recipe: {
+                    include: {
+                        items: {
+                            include: {
+                                material: true,
+                            },
+                        },
+                    },
+                },
+            },
+        });
+
+        if (!order) throw new NotFoundException(`Üretim emri bulunamadı: ${id}`);
+        if (!order.recipe) throw new BadRequestException(`Bu emre bağlı bir reçete bulunamadı.`);
+
+        const scalingFactor = Number(order.plannedQuantity) / Number(order.recipe.batchSize);
+        const missingItems: any[] = [];
+        let isAvailable = true;
+
+        for (const item of order.recipe.items) {
+            const requiredBase = Number(item.quantity) * scalingFactor;
+            const requiredWithWastage = requiredBase * (1 + (Number(item.wastagePercent) / 100));
+
+            const currentStock = Number(item.material.currentStock);
+
+            if (currentStock < requiredWithWastage) {
+                isAvailable = false;
+                missingItems.push({
+                    materialId: item.material.id,
+                    materialName: item.material.name,
+                    materialCode: item.material.code,
+                    required: requiredWithWastage,
+                    available: currentStock,
+                    missing: requiredWithWastage - currentStock,
+                    unit: item.material.unitOfMeasure,
+                });
+            }
+        }
+
+        return {
+            isAvailable,
+            missingItems,
+            orderId: id,
+            orderNumber: order.orderNumber,
+        };
+    }
+
+    async reschedule(id: string, plannedStart: Date, plannedEnd: Date) {
+        const order = await this.findOne(id);
+        if (order.status === 'COMPLETED' || order.status === 'CANCELLED') {
+            throw new BadRequestException(`Tamamlanmış veya iptal edilmiş siparişler yeniden planlanamaz.`);
+        }
+
+        return this.prisma.productionOrder.update({
+            where: { id },
+            data: {
+                plannedStart,
+                plannedEnd,
+            },
+        });
+    }
 }

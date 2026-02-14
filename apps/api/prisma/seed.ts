@@ -1,6 +1,6 @@
 // apps/api/prisma/seed.ts
 
-import { PrismaClient, MaterialType, ProductionOrderStatus, BatchStatus, MaterialBatchStatus } from '@prisma/client';
+import { PrismaClient, MaterialType, ProductionOrderStatus, BatchStatus, MaterialBatchStatus, WorkStationType, CleanroomGrade } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
@@ -207,56 +207,63 @@ async function seedRecipes() {
     const productMap = Object.fromEntries(products.map(p => [p.code, p.id]));
     const materialMap = Object.fromEntries(materials.map(m => [m.code, { id: m.id, price: Number(m.unitPrice) }]));
 
+    // Helper to create recipe if not exists
+    const createRecipeIfNotExists = async (data: any) => {
+        const existing = await prisma.recipe.findUnique({ where: { code: data.code } });
+        if (existing) return existing;
+
+        // Extract totalCost calculation logic if needed, but for seed we used fixed values or calculated
+        // The original code calculated totalCost later. Let's keep it simple.
+        return prisma.recipe.create({ data });
+    };
+
     // Recipe for Vitamin C 1000mg
-    const r1 = await prisma.recipe.create({
-        data: {
-            code: 'REC-001', name: 'Vitamin C 1000mg Tablet Recetesi', productId: productMap['PRD-001'], version: 1, batchSize: 5000, batchUnit: 'Adet', isActive: true,
-            items: {
-                create: [
-                    { materialId: materialMap['HM-001'].id, quantity: 5.5, unit: 'Kg', wastagePercent: 2, unitCost: materialMap['HM-001'].price, totalCost: 5.5 * materialMap['HM-001'].price * 1.02, order: 1 },
-                    { materialId: materialMap['AM-003'].id, quantity: 500, unit: 'Adet', wastagePercent: 1, unitCost: materialMap['AM-003'].price, totalCost: 500 * materialMap['AM-003'].price * 1.01, order: 2 },
-                    { materialId: materialMap['AM-004'].id, quantity: 5000, unit: 'Adet', wastagePercent: 1, unitCost: materialMap['AM-004'].price, totalCost: 5000 * materialMap['AM-004'].price * 1.01, order: 3 },
-                ],
-            },
+    const r1 = await createRecipeIfNotExists({
+        code: 'REC-001', name: 'Vitamin C 1000mg Tablet Recetesi', productId: productMap['PRD-001'], version: 1, batchSize: 5000, batchUnit: 'Adet', isActive: true,
+        items: {
+            create: [
+                { materialId: materialMap['HM-001'].id, quantity: 5.5, unit: 'Kg', wastagePercent: 2, unitCost: materialMap['HM-001'].price, totalCost: 5.5 * materialMap['HM-001'].price * 1.02, order: 1 },
+                { materialId: materialMap['AM-003'].id, quantity: 500, unit: 'Adet', wastagePercent: 1, unitCost: materialMap['AM-003'].price, totalCost: 500 * materialMap['AM-003'].price * 1.01, order: 2 },
+                { materialId: materialMap['AM-004'].id, quantity: 5000, unit: 'Adet', wastagePercent: 1, unitCost: materialMap['AM-004'].price, totalCost: 5000 * materialMap['AM-004'].price * 1.01, order: 3 },
+            ],
         },
     });
 
     // Recipe for Omega-3
-    const r2 = await prisma.recipe.create({
-        data: {
-            code: 'REC-002', name: 'Omega-3 Kapsul Recetesi', productId: productMap['PRD-002'], version: 1, batchSize: 3000, batchUnit: 'Adet', isActive: true,
-            items: {
-                create: [
-                    { materialId: materialMap['HM-002'].id, quantity: 4.2, unit: 'Lt', wastagePercent: 3, unitCost: materialMap['HM-002'].price, totalCost: 4.2 * materialMap['HM-002'].price * 1.03, order: 1 },
-                    { materialId: materialMap['AM-001'].id, quantity: 3000, unit: 'Adet', wastagePercent: 2, unitCost: materialMap['AM-001'].price, totalCost: 3000 * materialMap['AM-001'].price * 1.02, order: 2 },
-                    { materialId: materialMap['AM-004'].id, quantity: 3000, unit: 'Adet', wastagePercent: 1, unitCost: materialMap['AM-004'].price, totalCost: 3000 * materialMap['AM-004'].price * 1.01, order: 3 },
-                ],
-            },
+    const r2 = await createRecipeIfNotExists({
+        code: 'REC-002', name: 'Omega-3 Kapsul Recetesi', productId: productMap['PRD-002'], version: 1, batchSize: 3000, batchUnit: 'Adet', isActive: true,
+        items: {
+            create: [
+                { materialId: materialMap['HM-002'].id, quantity: 4.2, unit: 'Lt', wastagePercent: 3, unitCost: materialMap['HM-002'].price, totalCost: 4.2 * materialMap['HM-002'].price * 1.03, order: 1 },
+                { materialId: materialMap['AM-001'].id, quantity: 3000, unit: 'Adet', wastagePercent: 2, unitCost: materialMap['AM-001'].price, totalCost: 3000 * materialMap['AM-001'].price * 1.02, order: 2 },
+                { materialId: materialMap['AM-004'].id, quantity: 3000, unit: 'Adet', wastagePercent: 1, unitCost: materialMap['AM-004'].price, totalCost: 3000 * materialMap['AM-004'].price * 1.01, order: 3 },
+            ],
         },
     });
 
     // Recipe for D3+K2
-    const r3 = await prisma.recipe.create({
-        data: {
-            code: 'REC-003', name: 'D3+K2 Damla Recetesi', productId: productMap['PRD-003'], version: 1, batchSize: 2000, batchUnit: 'Adet', isActive: true,
-            items: {
-                create: [
-                    { materialId: materialMap['HM-003'].id, quantity: 0.12, unit: 'Kg', wastagePercent: 5, unitCost: materialMap['HM-003'].price, totalCost: 0.12 * materialMap['HM-003'].price * 1.05, order: 1 },
-                    { materialId: materialMap['AM-002'].id, quantity: 2000, unit: 'Adet', wastagePercent: 2, unitCost: materialMap['AM-002'].price, totalCost: 2000 * materialMap['AM-002'].price * 1.02, order: 2 },
-                    { materialId: materialMap['AM-004'].id, quantity: 2000, unit: 'Adet', wastagePercent: 1, unitCost: materialMap['AM-004'].price, totalCost: 2000 * materialMap['AM-004'].price * 1.01, order: 3 },
-                ],
-            },
+    const r3 = await createRecipeIfNotExists({
+        code: 'REC-003', name: 'D3+K2 Damla Recetesi', productId: productMap['PRD-003'], version: 1, batchSize: 2000, batchUnit: 'Adet', isActive: true,
+        items: {
+            create: [
+                { materialId: materialMap['HM-003'].id, quantity: 0.12, unit: 'Kg', wastagePercent: 5, unitCost: materialMap['HM-003'].price, totalCost: 0.12 * materialMap['HM-003'].price * 1.05, order: 1 },
+                { materialId: materialMap['AM-002'].id, quantity: 2000, unit: 'Adet', wastagePercent: 2, unitCost: materialMap['AM-002'].price, totalCost: 2000 * materialMap['AM-002'].price * 1.02, order: 2 },
+                { materialId: materialMap['AM-004'].id, quantity: 2000, unit: 'Adet', wastagePercent: 1, unitCost: materialMap['AM-004'].price, totalCost: 2000 * materialMap['AM-004'].price * 1.01, order: 3 },
+            ],
         },
     });
 
     // Update total costs
     for (const recipe of [r1, r2, r3]) {
+        if (!recipe) continue;
         const items = await prisma.recipeItem.findMany({ where: { recipeId: recipe.id } });
-        const totalCost = items.reduce((acc, item) => acc + Number(item.totalCost), 0);
-        await prisma.recipe.update({ where: { id: recipe.id }, data: { totalCost } });
+        if (items.length > 0) {
+            const totalCost = items.reduce((acc, item) => acc + Number(item.totalCost), 0);
+            await prisma.recipe.update({ where: { id: recipe.id }, data: { totalCost } });
+        }
     }
 
-    console.log('3 recipes seeded.');
+    console.log('3 recipes seeded/checked.');
 }
 
 async function seedProductionOrders() {
@@ -278,9 +285,13 @@ async function seedProductionOrders() {
     ];
 
     for (const order of orders) {
-        await prisma.productionOrder.create({ data: order });
+        if (!order.productId || !order.recipeId) continue;
+        const exists = await prisma.productionOrder.findUnique({ where: { orderNumber: order.orderNumber } });
+        if (!exists) {
+            await prisma.productionOrder.create({ data: order });
+        }
     }
-    console.log('8 production orders seeded.');
+    console.log('Production orders seeded/checked.');
 }
 
 async function seedProductionBatches() {
@@ -302,9 +313,13 @@ async function seedProductionBatches() {
     ];
 
     for (const batch of batches) {
-        await prisma.productionBatch.create({ data: batch });
+        if (!batch.productionOrderId) continue;
+        const exists = await prisma.productionBatch.findUnique({ where: { batchNumber: batch.batchNumber } });
+        if (!exists) {
+            await prisma.productionBatch.create({ data: batch });
+        }
     }
-    console.log('10 production batches seeded.');
+    console.log('Production batches seeded/checked.');
 }
 
 async function seedConsumptions() {
@@ -627,6 +642,59 @@ async function seedProductionMetadata() {
     console.log('5 entity metadata schemas seeded.');
 }
 
+async function seedProductionStructure() {
+    console.log('Seeding production structure...');
+    const orgCount = await prisma.organization.count();
+    if (orgCount > 0) {
+        console.log('Organization already exists. Skipping...');
+        return;
+    }
+
+    const org = await prisma.organization.create({
+        data: {
+            name: 'SepeNatural Ilac',
+            taxNumber: '1234567890',
+            address: 'Gebze OSB',
+        },
+    });
+
+    const site = await prisma.productionSite.create({
+        data: {
+            organizationId: org.id,
+            name: 'Gebze Uretim Tesisi',
+            address: 'Gebze OSB 1. Cadde',
+            licenseNumber: 'GMP-2026-001',
+        },
+    });
+
+    // Create WorkStations
+    const stations = [
+        { name: 'Tartim Odasi 1', code: 'WS-001', type: WorkStationType.WEIGHING, cleanroomGrade: CleanroomGrade.GRADE_D, dailyCapacity: 1000, hourlyRate: 150 },
+        { name: 'Granulasyon Mikseri', code: 'WS-002', type: WorkStationType.GRANULATION, cleanroomGrade: CleanroomGrade.GRADE_D, dailyCapacity: 500, hourlyRate: 80 },
+        { name: 'Tablet Presi - Fette', code: 'WS-003', type: WorkStationType.COMPRESSION, cleanroomGrade: CleanroomGrade.GRADE_D, dailyCapacity: 50000, hourlyRate: 8000 },
+        { name: 'Kaplama Makinesi', code: 'WS-004', type: WorkStationType.COATING, cleanroomGrade: CleanroomGrade.GRADE_D, dailyCapacity: 40000, hourlyRate: 6000 },
+        { name: 'Blister Hatti', code: 'WS-005', type: WorkStationType.PACKAGING, cleanroomGrade: CleanroomGrade.GRADE_D, dailyCapacity: 30000, hourlyRate: 5000 },
+        { name: 'Kutu Paketleme', code: 'WS-006', type: WorkStationType.PACKAGING, cleanroomGrade: CleanroomGrade.CNC, dailyCapacity: 30000, hourlyRate: 5000 },
+        { name: 'Kalite Kontrol Lab', code: 'WS-007', type: WorkStationType.QC, cleanroomGrade: CleanroomGrade.CNC, dailyCapacity: 100, hourlyRate: 20 },
+    ];
+
+    for (const st of stations) {
+        await prisma.workStation.create({
+            data: {
+                siteId: site.id,
+                name: st.name,
+                code: st.code,
+                type: st.type,
+                cleanroomGrade: st.cleanroomGrade,
+                dailyCapacity: st.dailyCapacity,
+                hourlyRate: st.hourlyRate,
+                status: 'ACTIVE',
+            },
+        });
+    }
+    console.log('Production structure seeded.');
+}
+
 async function main() {
     try {
         await seedUsers();
@@ -641,6 +709,7 @@ async function main() {
         await seedProductionBatches();
         await seedConsumptions();
         await seedProductionMetadata();
+        await seedProductionStructure();
         console.log('\nAll seeds completed successfully!');
     } catch (error) {
         console.error('Seed error:', error);
