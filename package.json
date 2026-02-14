@@ -6,7 +6,7 @@
     "scripts": {
         "dev": "turbo dev",
         "build": "turbo build",
-        "lint": "turbo lint",
+        "lint": "turbo run type-check --filter=@sepe/web --filter=@sepenatural/shared",
         "db:generate": "pnpm --filter @sepenatural/api prisma generate",
         "db:migrate": "pnpm --filter @sepenatural/api prisma migrate dev",
         "db:seed": "pnpm --filter @sepenatural/api prisma db seed",

@@ -172,9 +172,9 @@ export default function MonitoringPage() {
                 type: 'rightAligned',
                 cellStyle: (params: any) => {
                     const code = params.value as number;
-                    if (code >= 500) return { color: '#e11d48', fontWeight: 'bold' };
-                    if (code >= 400) return { color: '#d97706', fontWeight: 'bold' };
-                    return { color: '#059669' };
+                    if (code >= 500) return { color: '#e11d48', fontWeight: 700 };
+                    if (code >= 400) return { color: '#d97706', fontWeight: 700 };
+                    return { color: '#059669', fontWeight: 500 };
                 },
             },
             {
@@ -185,9 +185,9 @@ export default function MonitoringPage() {
                 valueFormatter: (params) => `${params.value} ms`,
                 cellStyle: (params: any) => {
                     if (params.value > 1000)
-                        return { color: '#e11d48', fontWeight: 'bold' };
-                    if (params.value > 500) return { color: '#d97706' };
-                    return {};
+                        return { color: '#e11d48', fontWeight: 700 };
+                    if (params.value > 500) return { color: '#d97706', fontWeight: 500 };
+                    return { color: '#334155', fontWeight: 400 };
                 },
             },
             {
