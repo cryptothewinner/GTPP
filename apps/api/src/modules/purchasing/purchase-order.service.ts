@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { CreatePurchaseOrderDto, UpdatePurchaseOrderDto } from './dto/create-purchase-order.dto';
-import { POStatus } from '@prisma/client';
+import { CreatePurchaseOrderDto, CreatePurchaseOrderFromRequisitionDto, UpdatePurchaseOrderDto } from './dto/create-purchase-order.dto';
+import { POStatus, PRStatus } from '@prisma/client';
 
 @Injectable()
 export class PurchaseOrderService {
@@ -62,6 +62,69 @@ export class PurchaseOrderService {
             },
             include: { items: true },
         });
+    }
+
+
+    async createFromRequisition(requisitionId: string, dto: CreatePurchaseOrderFromRequisitionDto) {
+        const requisition = await this.prisma.purchaseRequisition.findUnique({
+            where: { id: requisitionId },
+            include: { items: true },
+        });
+
+        if (!requisition) {
+            throw new NotFoundException(`Purchase Requisition not found: ${requisitionId}`);
+        }
+
+        if (requisition.status !== PRStatus.APPROVED) {
+            throw new BadRequestException('Only approved requisitions can be converted to PO');
+        }
+
+        if (!requisition.items.length) {
+            throw new BadRequestException('Requisition has no items to convert');
+        }
+
+        const nonMaterialItem = requisition.items.find(item => !item.materialId);
+        if (nonMaterialItem) {
+            throw new BadRequestException('All PR items must be linked to a material for PO conversion');
+        }
+
+        const poNumber = await this.generatePONumber();
+
+        const po = await this.prisma.purchaseOrder.create({
+            data: {
+                poNumber,
+                supplierId: dto.supplierId,
+                companyCodeId: dto.companyCodeId,
+                purchOrgId: dto.purchOrgId,
+                purchGroupId: dto.purchGroupId,
+                documentDate: dto.documentDate ? new Date(dto.documentDate) : new Date(),
+                currency: dto.currency || 'TRY',
+                notes: dto.notes || requisition.notes,
+                status: POStatus.DRAFT,
+                items: {
+                    create: requisition.items.map((item) => ({
+                        materialId: item.materialId!,
+                        quantity: item.quantity,
+                        unit: item.unit,
+                        netPrice: 0,
+                        taxRate: 20,
+                        plantId: dto.plantId,
+                        storageLocId: dto.storageLocId,
+                        deliveryDate: item.deliveryDate,
+                        receivedQuantity: 0,
+                        isOpen: true,
+                    })),
+                },
+            },
+            include: { items: true },
+        });
+
+        await this.prisma.purchaseRequisition.update({
+            where: { id: requisitionId },
+            data: { status: PRStatus.CLOSED },
+        });
+
+        return po;
     }
 
     async findAll() {

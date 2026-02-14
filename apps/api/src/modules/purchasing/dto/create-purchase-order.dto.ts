@@ -90,3 +90,41 @@ export class UpdatePurchaseOrderDto {
 
     // Add other updatable fields as needed
 }
+
+export class CreatePurchaseOrderFromRequisitionDto {
+    @IsNotEmpty()
+    @IsUUID()
+    supplierId: string;
+
+    @IsNotEmpty()
+    @IsUUID()
+    companyCodeId: string;
+
+    @IsNotEmpty()
+    @IsUUID()
+    purchOrgId: string;
+
+    @IsOptional()
+    @IsUUID()
+    purchGroupId?: string;
+
+    @IsNotEmpty()
+    @IsUUID()
+    plantId: string;
+
+    @IsOptional()
+    @IsUUID()
+    storageLocId?: string;
+
+    @IsOptional()
+    @IsDateString()
+    documentDate?: string;
+
+    @IsOptional()
+    @IsString()
+    currency?: string;
+
+    @IsOptional()
+    @IsString()
+    notes?: string;
+}

@@ -25,6 +25,7 @@ import {
     Truck,
     FileText,
     ArrowRight,
+    ClipboardList,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -82,6 +83,7 @@ const navItems: NavItem[] = [
         icon: <Truck className="w-4 h-4" />,
         children: [
             { label: 'Tedarikçiler', href: '/purchasing/suppliers', icon: <Users className="w-4 h-4" /> },
+            { label: 'Satınalma Talepleri', href: '/purchasing/requisitions', icon: <ClipboardList className="w-4 h-4" /> },
             { label: 'Satınalma Siparişleri', href: '/purchasing/orders', icon: <FileText className="w-4 h-4" /> },
         ],
     },

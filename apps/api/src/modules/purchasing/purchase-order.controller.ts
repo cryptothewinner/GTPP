@@ -1,6 +1,6 @@
 import { Controller, Get, Post, Patch, Delete, Body, Param } from '@nestjs/common';
 import { PurchaseOrderService } from './purchase-order.service';
-import { CreatePurchaseOrderDto, UpdatePurchaseOrderDto } from './dto/create-purchase-order.dto';
+import { CreatePurchaseOrderDto, CreatePurchaseOrderFromRequisitionDto, UpdatePurchaseOrderDto } from './dto/create-purchase-order.dto';
 import { POStatus } from '@prisma/client';
 
 @Controller('purchasing/orders')
@@ -10,6 +10,11 @@ export class PurchaseOrderController {
     @Post()
     create(@Body() dto: CreatePurchaseOrderDto) {
         return this.service.create(dto);
+    }
+
+    @Post('from-requisition/:id')
+    createFromRequisition(@Param('id') id: string, @Body() dto: CreatePurchaseOrderFromRequisitionDto) {
+        return this.service.createFromRequisition(id, dto);
     }
 
     @Get()
