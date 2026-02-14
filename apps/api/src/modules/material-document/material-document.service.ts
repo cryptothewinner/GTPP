@@ -1,11 +1,17 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateMaterialDocumentDto } from './dto/create-material-document.dto';
-import { MovementType, POStatus, MaterialBatchStatus } from '@prisma/client';
+import { MovementType, POStatus, MaterialBatchStatus, Prisma, MaterialType } from '@prisma/client';
+import { AccountDeterminationService } from '../accounting/account-determination.service';
+
+type PrismaTx = Prisma.TransactionClient;
 
 @Injectable()
 export class MaterialDocumentService {
-    constructor(private readonly prisma: PrismaService) { }
+    constructor(
+        private readonly prisma: PrismaService,
+        private readonly accountDeterminationService: AccountDeterminationService,
+    ) { }
 
     private async generateDocNumber(year: number): Promise<string> {
         const prefix = `M-${year}-`;
@@ -45,12 +51,13 @@ export class MaterialDocumentService {
 
             // 2. Process Items
             for (const item of dto.items) {
-                // Calculation of local currency amount would go here (Unit Price * Qty)
-
-                // Inventory Impact
                 await this.processInventoryImpact(tx, dto.movementType, item);
 
-                // Document Line Item
+                const material = await tx.material.findUnique({ where: { id: item.materialId } });
+                if (!material) throw new NotFoundException(`Material not found: ${item.materialId}`);
+
+                const amountLC = Number(item.quantity) * Number(material.unitPrice);
+
                 await tx.materialDocumentItem.create({
                     data: {
                         materialDocId: doc.id,
@@ -60,15 +67,17 @@ export class MaterialDocumentService {
                         batchNumber: item.batchNumber,
                         quantity: item.quantity,
                         unit: item.unit,
+                        amountLC,
                         debitCredit: this.getDebitCredit(dto.movementType),
                     },
                 });
 
-                // 3. Movement Specific Logic (e.g. PO Update)
                 if (dto.movementType === MovementType.GR_PURCHASE_ORDER && dto.purchaseOrderId && item.refItemId) {
                     await this.updatePOHistory(tx, dto.purchaseOrderId, item.refItemId, item.quantity);
                 }
             }
+
+            await this.postAccountingForMaterialDocument(tx, doc.id);
 
             return doc;
         });
@@ -86,8 +95,140 @@ export class MaterialDocumentService {
             case MovementType.GI_SALES_ORDER:
                 return 'H'; // Credit (Stock Decrease)
             default:
-                return 'S'; // Default handling needed
+                return 'S';
         }
+    }
+
+    private async postAccountingForMaterialDocument(tx: PrismaTx, materialDocumentId: string) {
+        const materialDoc = await tx.materialDocument.findUnique({
+            where: { id: materialDocumentId },
+            include: {
+                items: {
+                    include: {
+                        material: true,
+                        plant: { include: { companyCode: true } },
+                    },
+                },
+            },
+        });
+
+        if (!materialDoc) throw new NotFoundException(`Material document not found: ${materialDocumentId}`);
+        if (!materialDoc.items.length) throw new BadRequestException('Material document must contain at least one item.');
+
+        const companyCode = materialDoc.items[0].plant.companyCode;
+        for (const item of materialDoc.items) {
+            if (item.plant.companyCodeId !== companyCode.id) {
+                throw new BadRequestException('All material document items must belong to the same company code for FI posting.');
+            }
+        }
+
+        let totalAmount = 0;
+        const inventoryBuckets = new Map<string, number>();
+        const offsetBuckets = new Map<string, number>();
+
+        for (const item of materialDoc.items) {
+            const amount = Number(item.amountLC ?? Number(item.quantity) * Number(item.material.unitPrice));
+            if (amount <= 0) {
+                throw new BadRequestException(`Material item amount must be greater than zero. Material: ${item.material.code}`);
+            }
+
+            const determination = await this.accountDeterminationService.resolveAccounts(tx, {
+                movementType: materialDoc.movementType,
+                valuationClass: item.material.valuationClass,
+                materialType: item.material.type as MaterialType,
+                companyCode: companyCode.code,
+            });
+
+            totalAmount += amount;
+            inventoryBuckets.set(
+                determination.inventoryGlAccountId,
+                (inventoryBuckets.get(determination.inventoryGlAccountId) ?? 0) + amount,
+            );
+            offsetBuckets.set(
+                determination.offsetGlAccountId,
+                (offsetBuckets.get(determination.offsetGlAccountId) ?? 0) + amount,
+            );
+        }
+
+        const isInventoryDebit = this.getDebitCredit(materialDoc.movementType) === 'S';
+        const journalItems: Array<{
+            glAccountId: string;
+            debit: number;
+            credit: number;
+            description: string;
+        }> = [];
+
+        for (const [glAccountId, amount] of inventoryBuckets.entries()) {
+            journalItems.push({
+                glAccountId,
+                debit: isInventoryDebit ? amount : 0,
+                credit: isInventoryDebit ? 0 : amount,
+                description: `Inventory posting (${materialDoc.movementType})`,
+            });
+        }
+
+        for (const [glAccountId, amount] of offsetBuckets.entries()) {
+            journalItems.push({
+                glAccountId,
+                debit: isInventoryDebit ? 0 : amount,
+                credit: isInventoryDebit ? amount : 0,
+                description: `Offset posting (${materialDoc.movementType})`,
+            });
+        }
+
+        const sumDebit = journalItems.reduce((acc, item) => acc + item.debit, 0);
+        const sumCredit = journalItems.reduce((acc, item) => acc + item.credit, 0);
+        if (Math.abs(sumDebit - sumCredit) > 0.01) {
+            throw new BadRequestException(`Journal is not balanced for material document ${materialDoc.docNumber}`);
+        }
+
+        const fiscalYear = materialDoc.postingDate.getFullYear();
+        const period = materialDoc.postingDate.getMonth() + 1;
+        const entryNumber = await this.generateFiDocNumber(tx, fiscalYear);
+
+        await tx.journalEntry.create({
+            data: {
+                companyCodeId: companyCode.id,
+                fiscalYear,
+                period,
+                entryNumber,
+                documentDate: materialDoc.documentDate,
+                postingDate: materialDoc.postingDate,
+                headerText: materialDoc.headerText ?? `MM posting ${materialDoc.docNumber}`,
+                reference: materialDoc.docNumber,
+                currency: companyCode.currency,
+                status: 'POSTED',
+                items: {
+                    create: journalItems.map((item) => ({
+                        glAccountId: item.glAccountId,
+                        debit: Number(item.debit.toFixed(2)),
+                        credit: Number(item.credit.toFixed(2)),
+                        description: item.description,
+                    })),
+                },
+            },
+        });
+
+        if (totalAmount <= 0) {
+            throw new BadRequestException(`Material document ${materialDoc.docNumber} generated zero accounting amount.`);
+        }
+    }
+
+    private async generateFiDocNumber(tx: PrismaTx, year: number): Promise<string> {
+        const prefix = `FI-${year}-`;
+        const lastDoc = await tx.journalEntry.findFirst({
+            where: { fiscalYear: year },
+            orderBy: { entryNumber: 'desc' },
+        });
+
+        let seq = 1;
+        if (lastDoc) {
+            const parts = lastDoc.entryNumber.split('-');
+            if (parts.length === 3) {
+                seq = parseInt(parts[2], 10) + 1;
+            }
+        }
+        return `${prefix}${String(seq).padStart(8, '0')}`;
     }
 
     private async processInventoryImpact(tx: any, type: MovementType, item: any) {
@@ -109,35 +250,30 @@ export class MaterialDocumentService {
         }
 
         await tx.material.update({
-            where: { id: item.materialId },
+            where: { id: material.id },
             data: { currentStock: newStock },
         });
 
-        // Batch Handling
         let batchNumber = item.batchNumber;
 
         if (isDebit) {
-            // Goods Receipt (Stock Increase)
             if (!batchNumber && material.autoBatch) {
-                // Generate simple batch number: B-YYYYMMDD-HHMMSS
                 const now = new Date();
                 const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
                 const timeStr = now.toTimeString().slice(0, 8).replace(/:/g, '');
                 batchNumber = `B-${dateStr}-${timeStr}`;
-                item.batchNumber = batchNumber; // Update item so it gets saved in DocumentItem
+                item.batchNumber = batchNumber;
             }
 
             if (batchNumber) {
                 const status = material.qualityControl ? MaterialBatchStatus.QUARANTINE : MaterialBatchStatus.AVAILABLE;
-
-                // Check if batch exists (e.g. adding to existing batch) or create new
                 const existingBatch = await tx.materialBatch.findUnique({
                     where: {
                         materialId_batchNumber: {
                             materialId: material.id,
                             batchNumber,
-                        }
-                    }
+                        },
+                    },
                 });
 
                 if (existingBatch) {
@@ -146,62 +282,54 @@ export class MaterialDocumentService {
                             materialId_batchNumber: {
                                 materialId: material.id,
                                 batchNumber,
-                            }
+                            },
                         },
                         data: {
                             remainingQuantity: { increment: qty },
-                            quantity: { increment: qty } // Total quantity ever received
-                        }
+                            quantity: { increment: qty },
+                        },
                     });
                 } else {
                     await tx.materialBatch.create({
                         data: {
-                            batchNumber, // No longer unique on its own
+                            batchNumber,
                             materialId: material.id,
                             quantity: qty,
-                            remainingQuantity: qty, // Initial remaining
-                            status: status,
+                            remainingQuantity: qty,
+                            status,
                             storageLocation: item.storageLocId,
-                            manufacturingDate: new Date(), // Assumption
-                            expiryDate: material.shelfLife ? new Date(Date.now() + material.shelfLife * 24 * 60 * 60 * 1000) : null
-                        }
+                            manufacturingDate: new Date(),
+                            expiryDate: material.shelfLife ? new Date(Date.now() + material.shelfLife * 24 * 60 * 60 * 1000) : null,
+                        },
                     });
                 }
             }
-        } else {
-            // Goods Issue (Stock Decrease)
-            if (batchNumber) {
-                const batch = await tx.materialBatch.findUnique({
-                    where: {
-                        materialId_batchNumber: {
-                            materialId: material.id,
-                            batchNumber,
-                        }
-                    }
-                });
-                if (!batch) throw new NotFoundException(`Batch ${batchNumber} not found`);
-
-                if (Number(batch.remainingQuantity) < qty && !material.allowNegativeStock) {
-                    throw new BadRequestException(`Insufficient stock in batch ${batchNumber}`);
-                }
-
-                await tx.materialBatch.update({
-                    where: {
-                        materialId_batchNumber: {
-                            materialId: material.id,
-                            batchNumber,
-                        }
+        } else if (batchNumber) {
+            const batch = await tx.materialBatch.findUnique({
+                where: {
+                    materialId_batchNumber: {
+                        materialId: material.id,
+                        batchNumber,
                     },
-                    data: {
-                        remainingQuantity: { decrement: qty }
-                    }
-                });
-            } else {
-                // FIFO consumption if no batch specified? 
-                // For now, if no batch is specified in GI, we just reduce total stock (already done above)
-                // In strict batch management, batchNumber MUST be provided for GI.
-                // We'll leave it as is for flexible/non-batch materials.
+                },
+            });
+            if (!batch) throw new NotFoundException(`Batch ${batchNumber} not found`);
+
+            if (Number(batch.remainingQuantity) < qty && !material.allowNegativeStock) {
+                throw new BadRequestException(`Insufficient stock in batch ${batchNumber}`);
             }
+
+            await tx.materialBatch.update({
+                where: {
+                    materialId_batchNumber: {
+                        materialId: material.id,
+                        batchNumber,
+                    },
+                },
+                data: {
+                    remainingQuantity: { decrement: qty },
+                },
+            });
         }
     }
 
@@ -216,18 +344,23 @@ export class MaterialDocumentService {
             where: { id: poItemId },
             data: {
                 receivedQuantity: newReceived,
-                isOpen
-            }
+                isOpen,
+            },
         });
 
-        // Update PO status if all items received?
-        // (Simplified logic for now)
+        const openItems = await tx.purchaseOrderItem.count({ where: { poId, isOpen: true } });
+        if (openItems === 0) {
+            await tx.purchaseOrder.update({
+                where: { id: poId },
+                data: { status: POStatus.COMPLETED },
+            });
+        }
     }
 
     async findAll() {
         return this.prisma.materialDocument.findMany({
             include: { items: { include: { material: true } } },
-            orderBy: { docNumber: 'desc' }
+            orderBy: { docNumber: 'desc' },
         });
     }
 
@@ -239,14 +372,14 @@ export class MaterialDocumentService {
                 plant: true,
                 storageLocation: true,
             },
-            orderBy: { materialDocument: { documentDate: 'desc' } }
+            orderBy: { materialDocument: { documentDate: 'desc' } },
         });
     }
 
     async findOne(id: string) {
         return this.prisma.materialDocument.findUnique({
             where: { id },
-            include: { items: { include: { material: true } } }
+            include: { items: { include: { material: true } } },
         });
     }
 }
