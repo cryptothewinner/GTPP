@@ -139,6 +139,21 @@ export class MaterialDocumentService {
                 companyCode: companyCode.code,
             });
 
+            if (materialDoc.movementType === MovementType.GI_SALES_ORDER) {
+                const [inventoryAccount, offsetAccount] = await Promise.all([
+                    tx.gLAccount.findUnique({ where: { id: determination.inventoryGlAccountId } }),
+                    tx.gLAccount.findUnique({ where: { id: determination.offsetGlAccountId } }),
+                ]);
+
+                if (!inventoryAccount || inventoryAccount.type !== 'ASSET') {
+                    throw new BadRequestException('PGI accounting failed: inventory account must be an ASSET account.');
+                }
+
+                if (!offsetAccount || offsetAccount.type !== 'EXPENSE') {
+                    throw new BadRequestException('PGI accounting failed: COGS account must be an EXPENSE account.');
+                }
+            }
+
             totalAmount += amount;
             inventoryBuckets.set(
                 determination.inventoryGlAccountId,
@@ -163,7 +178,9 @@ export class MaterialDocumentService {
                 glAccountId,
                 debit: isInventoryDebit ? amount : 0,
                 credit: isInventoryDebit ? 0 : amount,
-                description: `Inventory posting (${materialDoc.movementType})`,
+                description: materialDoc.movementType === MovementType.GI_SALES_ORDER
+                    ? 'Stock decrease for PGI'
+                    : `Inventory posting (${materialDoc.movementType})`,
             });
         }
 
@@ -172,7 +189,9 @@ export class MaterialDocumentService {
                 glAccountId,
                 debit: isInventoryDebit ? 0 : amount,
                 credit: isInventoryDebit ? amount : 0,
-                description: `Offset posting (${materialDoc.movementType})`,
+                description: materialDoc.movementType === MovementType.GI_SALES_ORDER
+                    ? 'COGS posting for PGI'
+                    : `Offset posting (${materialDoc.movementType})`,
             });
         }
 
