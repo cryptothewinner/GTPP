@@ -24,6 +24,11 @@
         },
         "clean": {
             "cache": false
+        },
+        "type-check": {
+            "dependsOn": [
+                "^type-check"
+            ]
         }
     }
 }

@@ -101,7 +101,7 @@ export default function NewPurchaseOrderPage() {
         try {
             const result = await createMutation.mutateAsync(data);
             toast({ title: 'Başarılı', description: 'Satınalma siparişi oluşturuldu.' });
-            router.push(`/purchasing/orders/${result.data?.id || result.id}`); // Handle response wrapper if any
+            router.push(`/purchasing/orders/${result.id}`);
         } catch (error) {
             console.error(error);
             toast({ title: 'Hata', description: 'Oluşturma sırasında bir sorun oluştu.', variant: 'destructive' });

@@ -57,7 +57,7 @@ export default function InventoryProductsPage() {
 
     const rows: any[] = listResult?.data ?? [];
     const summary = summaryResult?.data;
-    const detail = detailResult?.data ?? detailResult;
+    const detail = detailResult && 'data' in detailResult ? detailResult.data : detailResult;
 
     const [editForm, setEditForm] = useState<Record<string, any>>({});
     useEffect(() => {

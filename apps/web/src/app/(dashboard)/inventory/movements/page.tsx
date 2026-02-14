@@ -98,7 +98,7 @@ export default function StockMovementsPage() {
     const batches: any[] = (batchesResult?.data ?? []).filter((b: any) => b.materialId === form.materialId);
 
     const colDefs: ColDef[] = useMemo(() => [
-        { field: 'movementNumber', headerName: 'HAREKET NO', width: 180, pinned: 'left', cellStyle: { fontWeight: 600 } },
+        { field: 'movementNumber', headerName: 'HAREKET NO', width: 180, pinned: 'left', cellStyle: { fontWeight: 600, color: '#1e293b' } },
         {
             field: 'createdAt', headerName: 'TARİH', width: 160,
             valueFormatter: (p: any) => p.value ? new Date(p.value).toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—',
@@ -126,10 +126,10 @@ export default function StockMovementsPage() {
                 );
             },
         },
-        { field: 'previousStock', headerName: 'ÖNCEKİ STOK', width: 120, valueFormatter: (p: any) => p.value != null ? Number(p.value).toLocaleString('tr-TR') : '—', cellStyle: { color: '#94a3b8' } },
-        { field: 'newStock', headerName: 'YENİ STOK', width: 120, valueFormatter: (p: any) => p.value != null ? Number(p.value).toLocaleString('tr-TR') : '—', cellStyle: { fontWeight: 700 } },
+        { field: 'previousStock', headerName: 'ÖNCEKİ STOK', width: 120, valueFormatter: (p: any) => p.value != null ? Number(p.value).toLocaleString('tr-TR') : '—', cellStyle: { color: '#94a3b8', fontWeight: 400 } },
+        { field: 'newStock', headerName: 'YENİ STOK', width: 120, valueFormatter: (p: any) => p.value != null ? Number(p.value).toLocaleString('tr-TR') : '—', cellStyle: { fontWeight: 700, color: '#1e293b' } },
         { field: 'unitPrice', headerName: 'BİRİM FİYAT', width: 120, valueFormatter: (p: any) => p.value != null ? `₺ ${Number(p.value).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}` : '—' },
-        { field: 'totalValue', headerName: 'TOPLAM DEĞER', width: 130, valueFormatter: (p: any) => p.value != null ? `₺ ${Number(p.value).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}` : '—', cellStyle: { fontWeight: 700 } },
+        { field: 'totalValue', headerName: 'TOPLAM DEĞER', width: 130, valueFormatter: (p: any) => p.value != null ? `₺ ${Number(p.value).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}` : '—', cellStyle: { fontWeight: 700, color: '#1e293b' } },
         { field: 'referenceType', headerName: 'REFERANS', width: 120, valueFormatter: (p: any) => [p.value, p.data?.referenceId].filter(Boolean).join(' #') || '—' },
         { field: 'description', headerName: 'AÇIKLAMA', flex: 1, minWidth: 160 },
         { field: 'performedBy', headerName: 'İŞLEMİ YAPAN', width: 140 },
