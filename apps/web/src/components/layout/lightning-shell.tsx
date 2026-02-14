@@ -102,6 +102,7 @@ const navItems: NavItem[] = [
             { label: 'Satış Teklifleri', href: '/sales/quotations', icon: <BarChart3 className="w-4 h-4" /> },
             { label: 'Satış Siparişleri', href: '/sales/orders', icon: <ShoppingBag className="w-4 h-4" /> },
             { label: 'Teslimatlar', href: '/sales/deliveries', icon: <Truck className="w-4 h-4" /> },
+            { label: 'Faturalar', href: '/sales/invoices', icon: <FileText className="w-4 h-4" /> },
         ],
     },
     {
