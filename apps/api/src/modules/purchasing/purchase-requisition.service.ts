@@ -87,9 +87,16 @@ export class PurchaseRequisitionService {
     async updateStatus(id: string, status: PRStatus) {
         const pr = await this.findOne(id);
 
-        // Simple state machine check
-        if (pr.status === PRStatus.CLOSED || pr.status === PRStatus.CANCELLED) {
-            throw new BadRequestException(`Cannot change status of a closed/cancelled PR`);
+        const transitionMap: Partial<Record<PRStatus, PRStatus[]>> = {
+            [PRStatus.DRAFT]: [PRStatus.APPROVED, PRStatus.CANCELLED],
+            [PRStatus.APPROVED]: [PRStatus.CLOSED, PRStatus.CANCELLED],
+            [PRStatus.CLOSED]: [],
+            [PRStatus.CANCELLED]: [],
+        };
+
+        const allowed = transitionMap[pr.status] ?? [];
+        if (!allowed.includes(status)) {
+            throw new BadRequestException(`Invalid PR status transition: ${pr.status} -> ${status}`);
         }
 
         return this.prisma.purchaseRequisition.update({
