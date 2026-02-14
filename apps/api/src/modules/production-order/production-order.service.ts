@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ProductionOrderStatus } from '@prisma/client';
+import { ProductionOrderLifecycleOrchestrator } from './production-order-lifecycle.orchestrator';
 
 interface FindAllParams {
     page: number;
@@ -13,7 +14,10 @@ interface FindAllParams {
 
 @Injectable()
 export class ProductionOrderService {
-    constructor(private readonly prisma: PrismaService) { }
+    constructor(
+        private readonly prisma: PrismaService,
+        private readonly lifecycleOrchestrator: ProductionOrderLifecycleOrchestrator,
+    ) { }
 
     private async generateOrderNumber(): Promise<string> {
         const today = new Date();
@@ -165,24 +169,16 @@ export class ProductionOrderService {
     }
 
     async start(id: string) {
-        const order = await this.findOne(id);
-        if (order.status !== 'DRAFT' && order.status !== 'PLANNED') {
-            throw new BadRequestException(`Bu sipariş başlatılamaz. Mevcut durum: ${order.status}`);
-        }
-        return this.prisma.productionOrder.update({
-            where: { id },
-            data: { status: 'IN_PROGRESS', actualStart: new Date() },
+        return this.lifecycleOrchestrator.handle({
+            type: 'production-order.start.requested',
+            orderId: id,
         });
     }
 
     async complete(id: string) {
-        const order = await this.findOne(id);
-        if (order.status !== 'IN_PROGRESS') {
-            throw new BadRequestException(`Bu sipariş tamamlanamaz. Mevcut durum: ${order.status}`);
-        }
-        return this.prisma.productionOrder.update({
-            where: { id },
-            data: { status: 'COMPLETED', actualEnd: new Date() },
+        return this.lifecycleOrchestrator.handle({
+            type: 'production-order.complete.requested',
+            orderId: id,
         });
     }
 
@@ -273,24 +269,11 @@ export class ProductionOrderService {
     }
 
     async confirmOperation(orderId: string, operationId: string, dto: any) {
-        const operation = await this.prisma.productionOrderOperation.findUnique({
-            where: { id: operationId },
-        });
-
-        if (!operation || operation.productionOrderId !== orderId) {
-            throw new NotFoundException(`Operasyon bulunamadı.`);
-        }
-
-        return this.prisma.productionOrderOperation.update({
-            where: { id: operationId },
-            data: {
-                // Let's assume QC_PENDING is the next step after production confirmation
-                status: 'QC_PENDING',
-                producedQuantity: { increment: dto.producedQuantity },
-                wasteQuantity: { increment: dto.wasteQuantity || 0 },
-                actualEnd: new Date(),
-                notes: dto.notes ? (operation.notes ? operation.notes + '\n' + dto.notes : dto.notes) : operation.notes,
-            }
+        return this.lifecycleOrchestrator.handle({
+            type: 'production-order.operation.confirmed',
+            orderId,
+            operationId,
+            dto,
         });
     }
 }
