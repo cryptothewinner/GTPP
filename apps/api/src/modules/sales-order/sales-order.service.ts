@@ -7,6 +7,51 @@ import { UpdateSalesOrderDto } from './dto/update-sales-order.dto';
 export class SalesOrderService {
     constructor(private readonly prisma: PrismaService) { }
 
+    private deriveDeliveryStatus(order: {
+        deliveries: Array<{ status: string }>;
+        items: Array<{ deliveryStatus: string }>;
+    }): string | undefined {
+        const itemStatuses = order.items
+            .map((item) => item.deliveryStatus)
+            .filter(Boolean);
+
+        if (itemStatuses.length > 0) {
+            const normalizedItemStatuses = itemStatuses.map((status) => status.toUpperCase());
+            if (normalizedItemStatuses.every((status) => status === 'FULL')) return 'FULL';
+            if (normalizedItemStatuses.every((status) => status === 'PENDING')) return 'PENDING';
+            return 'PARTIAL';
+        }
+
+        if (order.deliveries.length === 0) return undefined;
+
+        const deliveryStatuses = order.deliveries
+            .map((delivery) => delivery.status)
+            .filter(Boolean)
+            .map((status) => status.toUpperCase());
+
+        if (deliveryStatuses.length === 0) return undefined;
+        if (deliveryStatuses.every((status) => ['ISSUED', 'SHIPPED'].includes(status))) return 'FULL';
+        if (deliveryStatuses.every((status) => ['DRAFT', 'OPEN', 'PENDING'].includes(status))) return 'PENDING';
+        return 'PARTIAL';
+    }
+
+    private deriveBillingStatus(order: {
+        invoices: Array<{ status: string }>;
+    }): string | undefined {
+        if (order.invoices.length === 0) return undefined;
+
+        const invoiceStatuses = order.invoices
+            .map((invoice) => invoice.status)
+            .filter(Boolean)
+            .map((status) => status.toUpperCase());
+
+        if (invoiceStatuses.length === 0) return undefined;
+        if (invoiceStatuses.every((status) => status === 'POSTED')) return 'BILLED';
+        if (invoiceStatuses.every((status) => status === 'DRAFT')) return 'PENDING';
+        if (invoiceStatuses.every((status) => status === 'CANCELLED')) return 'CANCELLED';
+        return 'PARTIAL';
+    }
+
     private async generateOrderNumber(): Promise<string> {
         const year = new Date().getFullYear();
         const prefix = `SO-${year}-`;
@@ -69,10 +114,21 @@ export class SalesOrderService {
     }
 
     async findAll() {
-        return this.prisma.salesOrder.findMany({
-            include: { customer: true, items: true },
+        const orders = await this.prisma.salesOrder.findMany({
+            include: {
+                customer: true,
+                items: true,
+                deliveries: { select: { status: true } },
+                invoices: { select: { status: true } },
+            },
             orderBy: { createdAt: 'desc' },
         });
+
+        return orders.map(({ deliveries, invoices, ...order }) => ({
+            ...order,
+            deliveryStatus: this.deriveDeliveryStatus({ deliveries, items: order.items }),
+            billingStatus: this.deriveBillingStatus({ invoices }),
+        }));
     }
 
     async findOne(id: string) {
