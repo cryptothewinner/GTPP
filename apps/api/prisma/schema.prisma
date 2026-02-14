@@ -124,6 +124,11 @@ model CompanyCode {
   purchOrgs      PurchasingOrg[]
   purchaseOrders PurchaseOrder[]
   glAccounts     GLAccount[]
+  taxConfigurations TaxConfiguration[]
+  companyCodeConfigurations CompanyCodeConfiguration[]
+  paymentTermConfigurations PaymentTermConfiguration[]
+  currencyConfigurations CurrencyConfiguration[]
+  accountingProcessMappings AccountingProcessMapping[]
   journalEntries JournalEntry[]
   costCenters    CostCenter[]
   profitCenters  ProfitCenter[]
@@ -1300,6 +1305,76 @@ model GLAccount {
   @@map("gl_accounts")
 }
 
+model TaxConfiguration {
+  id            String   @id @default(cuid())
+  companyCodeId String   @map("company_code_id")
+  taxCode       String   @map("tax_code")
+  rate          Decimal  @db.Decimal(5, 2)
+  validFrom     DateTime @default(now()) @map("valid_from")
+  validTo       DateTime? @map("valid_to")
+  isActive      Boolean  @default(true) @map("is_active")
+
+  companyCode CompanyCode @relation(fields: [companyCodeId], references: [id])
+
+  @@unique([companyCodeId, taxCode, validFrom])
+  @@index([companyCodeId, taxCode, isActive])
+  @@map("cfg_tax_rates")
+}
+
+model CompanyCodeConfiguration {
+  id                    String  @id @default(cuid())
+  salesOrgId            String  @unique @map("sales_org_id")
+  defaultCompanyCodeId  String  @map("default_company_code_id")
+  isActive              Boolean @default(true) @map("is_active")
+
+  salesOrg           SalesOrg    @relation(fields: [salesOrgId], references: [id])
+  defaultCompanyCode CompanyCode @relation(fields: [defaultCompanyCodeId], references: [id])
+
+  @@index([defaultCompanyCodeId, isActive])
+  @@map("cfg_company_code")
+}
+
+model PaymentTermConfiguration {
+  id            String  @id @default(cuid())
+  companyCodeId String  @map("company_code_id")
+  process       String
+  paymentTerm   String  @map("payment_term")
+  dueDays       Int     @map("due_days")
+  isActive      Boolean @default(true) @map("is_active")
+
+  companyCode CompanyCode @relation(fields: [companyCodeId], references: [id])
+
+  @@unique([companyCodeId, process])
+  @@index([companyCodeId, isActive])
+  @@map("cfg_payment_terms")
+}
+
+model CurrencyConfiguration {
+  id              String  @id @default(cuid())
+  companyCodeId   String  @unique @map("company_code_id")
+  defaultCurrency String  @map("default_currency")
+  isActive        Boolean @default(true) @map("is_active")
+
+  companyCode CompanyCode @relation(fields: [companyCodeId], references: [id])
+
+  @@index([defaultCurrency, isActive])
+  @@map("cfg_currency_defaults")
+}
+
+model AccountingProcessMapping {
+  id               String  @id @default(cuid())
+  companyCodeId    String  @map("company_code_id")
+  processKey       String  @map("process_key")
+  glAccountNumber  String  @map("gl_account_number")
+  isActive         Boolean @default(true) @map("is_active")
+
+  companyCode CompanyCode @relation(fields: [companyCodeId], references: [id])
+
+  @@unique([companyCodeId, processKey])
+  @@index([processKey, isActive])
+  @@map("cfg_account_process_mapping")
+}
+
 model JournalEntry {
   id            String   @id @default(cuid())
   entryNumber   String   @unique @map("entry_number") // FI-2024-00001
@@ -1411,6 +1486,7 @@ model SalesOrg {
   salesQuotations SalesQuotation[]
   salesOrders     SalesOrder[]
   salesAreas      SalesArea[]
+  companyCodeConfig CompanyCodeConfiguration?
 
   @@map("sales_orgs")
 }

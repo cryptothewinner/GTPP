@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateGLAccountDto } from './dto/create-gl-account.dto';
 import { CreateJournalEntryDto, PostingType } from './dto/create-journal-entry.dto';
@@ -7,13 +7,10 @@ import { CreateJournalEntryDto, PostingType } from './dto/create-journal-entry.d
 export class AccountingService {
     constructor(private readonly prisma: PrismaService) { }
 
-    // --- G/L Accounts ---
-
     async createGLAccount(dto: CreateGLAccountDto) {
         const existing = await this.prisma.gLAccount.findUnique({ where: { accountNumber: dto.accountNumber } });
         if (existing) throw new BadRequestException('Bu hesap numarası zaten var.');
 
-        // Fetch default company if not provided (Simplification)
         const company = await this.prisma.companyCode.findFirst();
         if (!company) throw new BadRequestException('Şirket kodu bulunamadı.');
 
@@ -28,8 +25,6 @@ export class AccountingService {
     async findAllGLAccounts() {
         return this.prisma.gLAccount.findMany({ orderBy: { accountNumber: 'asc' } });
     }
-
-    // --- Journal Entries ---
 
     private async generateDocNumber(year: number): Promise<string> {
         const prefix = `FI-${year}-`;
@@ -51,14 +46,12 @@ export class AccountingService {
     async createJournalEntry(dto: CreateJournalEntryDto) {
         const date = dto.postingDate ? new Date(dto.postingDate) : new Date();
         const year = date.getFullYear();
-        const period = date.getMonth() + 1; // Month 1-12
+        const period = date.getMonth() + 1;
         const entryNumber = await this.generateDocNumber(year);
 
-        // Fetch default company
         const company = await this.prisma.companyCode.findFirst();
         if (!company) throw new BadRequestException('Şirket kodu bulunamadı.');
 
-        // Validation: Debits must equal Credits
         let totalDebit = 0;
         let totalCredit = 0;
 
@@ -104,25 +97,45 @@ export class AccountingService {
         });
     }
 
+    async getAccountForProcess(processKey: string, companyCodeId?: string): Promise<string> {
+        const resolvedCompanyCodeId = companyCodeId ?? (await this.prisma.companyCode.findFirst())?.id;
+        if (!resolvedCompanyCodeId) {
+            throw new BadRequestException({
+                error: 'ACCOUNTING_COMPANY_CODE_NOT_CONFIGURED',
+                message: 'Hesap belirleme için şirket kodu bulunamadı.',
+                details: { processKey },
+            });
+        }
 
-    // --- Automatic Account Determination Helper ---
-    // In a real system, this would look up configuration tables (T030).
-    async getAccountForProcess(processKey: string): Promise<string> {
-        // Mock Implementation
-        const mapping = {
-            'REVENUE_DOMESTIC': '600.01.001', // Yurt İçi Satışlar
-            'VAT_OUTPUT': '391.01.001',       // Hesaplanan KDV
-            'RECEIVABLES': '120.01.001',      // Alıcılar
-            'INVENTORY_RAW': '150.01.001',    // İlk Madde ve Malzeme
-            'KDV_INPUT': '191.01.001',
-            // Add more as needed
-        };
+        const mapping = await this.prisma.accountingProcessMapping.findUnique({
+            where: {
+                companyCodeId_processKey: {
+                    companyCodeId: resolvedCompanyCodeId,
+                    processKey,
+                },
+            },
+        });
 
-        const accNum = mapping[processKey];
-        if (!accNum) throw new BadRequestException(`GL Account mapping missing for ${processKey}`);
+        if (!mapping || !mapping.isActive) {
+            throw new BadRequestException({
+                error: 'ACCOUNTING_PROCESS_MAPPING_MISSING',
+                message: 'Süreç için GL hesap mapping kaydı bulunamadı.',
+                details: { companyCodeId: resolvedCompanyCodeId, processKey },
+            });
+        }
 
-        const account = await this.prisma.gLAccount.findUnique({ where: { accountNumber: accNum } });
-        if (!account) throw new BadRequestException(`Configured GL Account ${accNum} does not exist in master data.`);
+        const account = await this.prisma.gLAccount.findUnique({ where: { accountNumber: mapping.glAccountNumber } });
+        if (!account) {
+            throw new BadRequestException({
+                error: 'ACCOUNTING_PROCESS_GL_ACCOUNT_INVALID',
+                message: 'Süreç mapping kaydındaki GL hesap ana veride bulunamadı.',
+                details: {
+                    companyCodeId: resolvedCompanyCodeId,
+                    processKey,
+                    glAccountNumber: mapping.glAccountNumber,
+                },
+            });
+        }
 
         return account.id;
     }
