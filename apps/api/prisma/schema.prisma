@@ -1547,10 +1547,10 @@ model InvoiceItem {
 // ─── INTEGRATION ──────────────────────────────────────────────────
 
 model IntegrationMapping {
-  systemId    String   @map("system_id")     // SAP_PRD, WMS, E_COMMERCE
-  entityType  String   @map("entity_type")   // MATERIAL, BP, ORDER
-  localId     String   @map("local_id")      // UUID
-  externalId  String   @map("external_id")   // MATNR, KUNNR, VBELN
+  systemId    String   @map("system_id")     // ACCOUNTING, SAP_PRD, WMS, E_COMMERCE
+  entityType  String   @map("entity_type")   // MATERIAL_MOVEMENT_ACCOUNT, MATERIAL, BP, ORDER
+  localId     String   @map("local_id")      // Standardized key format: movementType|valuationClass|materialType|companyCode
+  externalId  String   @map("external_id")   // Reference code / process key (kept for interoperability)
   payload     Json?    // Optional extra data
   lastSyncedAt DateTime? @map("last_synced_at") @db.Timestamptz(3)
   
