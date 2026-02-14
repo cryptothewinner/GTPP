@@ -14,8 +14,8 @@ import { ProductionBatchModule } from './modules/production-batch/production-bat
 import { MaterialBatchModule } from './modules/material-batch/material-batch.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { StockMovementModule } from './modules/stock-movement/stock-movement.module';
-// import { ProductionStructureModule } from './modules/production-structure/production-structure.module';
 import { PlantHierarchyModule } from './modules/plant-hierarchy/plant-hierarchy.module';
+import { ProductionPlanModule } from './modules/production-plan/production-plan.module';
 import { PurchasingModule } from './modules/purchasing/purchasing.module';
 import { MaterialDocumentModule } from './modules/material-document/material-document.module';
 import { ProcessDefinitionModule } from './modules/process-definition/process-definition.module';
@@ -53,8 +53,9 @@ import { AccountingModule } from './modules/accounting/accounting.module';
         MaterialBatchModule,
         DashboardModule,
         StockMovementModule,
-        // ProductionStructureModule,
+        // Production structure canonical contract: PlantHierarchy + ProductionPlan endpoints.
         PlantHierarchyModule,
+        ProductionPlanModule,
         PurchasingModule,
         MaterialDocumentModule,
         ProcessDefinitionModule,
