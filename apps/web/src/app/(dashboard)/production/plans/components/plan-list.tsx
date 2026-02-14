@@ -4,7 +4,7 @@ import React from 'react';
 import { useProductionPlans } from '@/hooks/use-production-structure';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, Calendar, FileText } from 'lucide-react';
+import { FileText } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Loader2 } from 'lucide-react';
@@ -65,7 +65,7 @@ export function PlanList() {
                                 <TableCell>
                                     <Badge className={getStatusColor(plan.status)}>{plan.status}</Badge>
                                 </TableCell>
-                                <TableCell>{plan.productionOrders?.length || 0}</TableCell>
+                                <TableCell>{plan._count?.productionOrders || 0}</TableCell>
                                 <TableCell className="text-right">
                                     <Button variant="ghost" size="sm">Detay</Button>
                                 </TableCell>

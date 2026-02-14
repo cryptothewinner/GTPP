@@ -8,8 +8,6 @@ import { useCreateProductionPlan } from '@/hooks/use-production-structure';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Plus } from 'lucide-react';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 
@@ -18,7 +16,6 @@ const formSchema = z.object({
     code: z.string().min(2, 'Plan kodu en az 2 karakter olmalıdır.'),
     startDate: z.string().refine((val) => !isNaN(Date.parse(val)), { message: 'Geçersiz tarih' }),
     endDate: z.string().refine((val) => !isNaN(Date.parse(val)), { message: 'Geçersiz tarih' }),
-    notes: z.string().optional(),
 });
 
 export function CreatePlanDialog() {
@@ -32,7 +29,6 @@ export function CreatePlanDialog() {
             code: '',
             startDate: new Date().toISOString().split('T')[0], // Today
             endDate: new Date().toISOString().split('T')[0],
-            notes: '',
         },
     });
 
@@ -115,19 +111,6 @@ export function CreatePlanDialog() {
                                 )}
                             />
                         </div>
-                        <FormField
-                            control={form.control}
-                            name="notes"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Notlar</FormLabel>
-                                    <FormControl>
-                                        <Textarea placeholder="Plan notları..." {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
                         <DialogFooter>
                             <Button type="submit" disabled={createPlan.isPending}>
                                 {createPlan.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

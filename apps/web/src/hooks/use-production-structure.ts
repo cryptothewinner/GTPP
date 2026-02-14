@@ -1,80 +1,65 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 
-export interface Organization {
-    id: string;
-    name: string;
-    taxNumber?: string;
-    address?: string;
-    sites?: ProductionSite[];
-}
-
 export interface ProductionSite {
     id: string;
-    organizationId: string;
+    code: string;
     name: string;
-    address?: string;
-    licenseNumber?: string;
-    workStations?: WorkStation[];
+    address?: string | null;
+    _count?: {
+        workCenters?: number;
+        plantSteps?: number;
+    };
 }
 
 export interface WorkStation {
     id: string;
-    siteId: string;
-    name: string;
+    plantId: string;
     code: string;
-    type: string;
-    cleanroomGrade: string;
+    name: string;
+    efficiency: number;
+    hourlyCost: number;
+    isActive: boolean;
+    plantStep?: {
+        id: string;
+        name: string;
+        type: string;
+    } | null;
+    _count?: {
+        equipment?: number;
+    };
+}
+
+export interface ProductionPlan {
+    id: string;
+    code: string;
+    name: string;
+    startDate: string;
+    endDate: string;
     status: string;
-    dailyCapacity: number;
-    hourlyRate: number;
-    metadata?: any;
-    site?: ProductionSite;
+    _count?: {
+        productionOrders?: number;
+    };
 }
 
-export function useOrganizations() {
+export function useProductionSites() {
     return useQuery({
-        queryKey: ['organizations'],
-        queryFn: () => apiClient.get<Organization[]>('/production-structure/organizations'),
+        queryKey: ['production-sites'],
+        queryFn: () => apiClient.get<ProductionSite[]>('/plant-hierarchy/plants'),
     });
 }
 
-export function useProductionSites(organizationId?: string) {
+export function useWorkStations(plantId?: string) {
     return useQuery({
-        queryKey: ['production-sites', organizationId],
-        queryFn: () => {
-            const searchParams = new URLSearchParams();
-            if (organizationId) searchParams.append('organizationId', organizationId);
-            return apiClient.get<ProductionSite[]>(`/production-structure/sites?${searchParams.toString()}`);
-        },
-    });
-}
-
-export function useWorkStations(siteId?: string) {
-    return useQuery({
-        queryKey: ['work-stations', siteId],
-        queryFn: () => {
-            const searchParams = new URLSearchParams();
-            if (siteId) searchParams.append('siteId', siteId);
-            return apiClient.get<WorkStation[]>(`/production-structure/work-stations?${searchParams.toString()}`);
-        },
-    });
-}
-
-export function useCreateSite() {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationFn: (data: Partial<ProductionSite>) => apiClient.post<ProductionSite>('/production-structure/sites', data),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['production-sites'] });
-        },
+        queryKey: ['work-stations', plantId],
+        queryFn: () => apiClient.get<WorkStation[]>('/plant-hierarchy/work-centers', { params: { plantId } }),
     });
 }
 
 export function useCreateWorkStation() {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: (data: Partial<WorkStation>) => apiClient.post<WorkStation>('/production-structure/work-stations', data),
+        mutationFn: (data: Partial<WorkStation>) => apiClient.post<WorkStation>('/plant-hierarchy/work-centers', data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['work-stations'] });
         },
@@ -84,36 +69,25 @@ export function useCreateWorkStation() {
 export function useUpdateStationStatus() {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: ({ id, status }: { id: string; status: string }) =>
-            apiClient.patch<WorkStation>(`/production-structure/work-stations/${id}/status`, { status }),
+        mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
+            apiClient.patch<WorkStation>(`/plant-hierarchy/work-centers/${id}`, { isActive }),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['work-stations'] });
         },
     });
 }
 
-// Production Plans Hooks
-export interface ProductionPlan {
-    id: string;
-    code: string;
-    name: string;
-    startDate: string;
-    endDate: string;
-    status: string;
-    productionOrders?: any[];
-}
-
 export function useProductionPlans() {
     return useQuery({
         queryKey: ['production-plans'],
-        queryFn: () => apiClient.get<ProductionPlan[]>('/production-structure/plans'),
+        queryFn: () => apiClient.get<ProductionPlan[]>('/production-plans'),
     });
 }
 
 export function useCreateProductionPlan() {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: (data: Partial<ProductionPlan>) => apiClient.post<ProductionPlan>('/production-structure/plans', data),
+        mutationFn: (data: Partial<ProductionPlan>) => apiClient.post<ProductionPlan>('/production-plans', data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['production-plans'] });
         },
