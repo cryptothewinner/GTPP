@@ -2,6 +2,7 @@ import { Controller, Get, Post, Patch, Param, Body, Query, ParseIntPipe, Default
 import { ProductionOrderService } from './production-order.service';
 import { CreateProductionOrderDto } from './dto/create-production-order.dto';
 import { UpdateProductionOrderDto } from './dto/update-production-order.dto';
+import { ConfirmOperationDto } from './dto/confirm-operation.dto';
 
 @Controller('production-orders')
 export class ProductionOrderController {
@@ -76,7 +77,7 @@ export class ProductionOrderController {
     async confirmOperation(
         @Param('id') id: string,
         @Param('opId') opId: string,
-        @Body() dto: any
+        @Body() dto: ConfirmOperationDto
     ) {
         return this.productionOrderService.confirmOperation(id, opId, dto);
     }

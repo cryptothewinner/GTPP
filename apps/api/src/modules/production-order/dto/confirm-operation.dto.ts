@@ -13,4 +13,9 @@ export class ConfirmOperationDto {
     @IsOptional()
     @IsString()
     notes?: string;
+
+    @IsOptional()
+    @IsNumber()
+    @Min(0)
+    activityDurationMinutes?: number;
 }
