@@ -1,8 +1,10 @@
 import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { ProductionPlanService } from './production-plan.service';
 import { CreateProductionPlanDto } from './dto/create-production-plan.dto';
+import { Roles } from '../../common/guards/roles.guard';
 
 @Controller('production-plans')
+@Roles('viewer')
 export class ProductionPlanController {
     constructor(private readonly productionPlanService: ProductionPlanService) { }
 
@@ -17,6 +19,7 @@ export class ProductionPlanController {
     }
 
     @Post()
+    @Roles('operator')
     create(@Body() dto: CreateProductionPlanDto) {
         return this.productionPlanService.create(dto);
     }
