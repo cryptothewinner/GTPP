@@ -4,20 +4,19 @@ import {
 import { StockMovementService } from './stock-movement.service';
 import { CreateStockMovementDto } from './dto/create-stock-movement.dto';
 import { StockMovementType } from '@prisma/client';
-import { Public } from '../../auth/jwt-auth.guard';
+import { Roles } from '../../common/guards/roles.guard';
 
 @Controller('stock-movements')
+@Roles('viewer')
 export class StockMovementController {
     constructor(private readonly stockMovementService: StockMovementService) {}
 
     @Get('summary')
-    @Public()
     getSummary() {
         return this.stockMovementService.getSummary();
     }
 
     @Get('recent')
-    @Public()
     getRecentMovements(
         @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
     ) {
@@ -25,7 +24,6 @@ export class StockMovementController {
     }
 
     @Get()
-    @Public()
     findAll(
         @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
         @Query('pageSize', new DefaultValuePipe(20), ParseIntPipe) pageSize: number,
@@ -36,7 +34,7 @@ export class StockMovementController {
     }
 
     @Post()
-    @Public()
+    @Roles('operator')
     create(@Body() dto: CreateStockMovementDto) {
         return this.stockMovementService.create(dto);
     }
