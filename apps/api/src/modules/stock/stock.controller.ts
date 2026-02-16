@@ -1,8 +1,10 @@
 import { Controller, Get, Patch, Param, Body, Query, ParseIntPipe, DefaultValuePipe } from '@nestjs/common';
+import { Roles } from '../../common/guards/roles.guard';
 import { StockService } from './stock.service';
 import { UpdateStockDto } from './dto/update-stock.dto';
 
 @Controller('stocks')
+@Roles('viewer')
 export class StockController {
     constructor(private readonly stockService: StockService) { }
 
@@ -34,6 +36,7 @@ export class StockController {
         return this.stockService.findOne(id);
     }
 
+    @Roles('operator')
     @Patch(':id')
     async update(@Param('id') id: string, @Body() dto: UpdateStockDto) {
         const stock = await this.stockService.update(id, dto);

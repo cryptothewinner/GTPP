@@ -3,8 +3,10 @@ import { AuthGuard } from '@nestjs/passport';
 import { InventoryService } from './inventory.service';
 import type { ServerSideGridRequest, ServerSideGridResponse, StockItemDto } from '@sepenatural/shared';
 import { Public } from '../../auth/jwt-auth.guard';
+import { Roles } from '../../common/guards/roles.guard';
 
 @Controller('inventory')
+@Roles('viewer')
 export class InventoryController {
     constructor(private inventoryService: InventoryService) { }
 

@@ -1,9 +1,11 @@
 import { Controller, Get, Post, Patch, Param, Body, Query, ParseIntPipe, DefaultValuePipe } from '@nestjs/common';
+import { Roles } from '../../common/guards/roles.guard';
 import { ProductService } from './product.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 
 @Controller('products')
+@Roles('viewer')
 export class ProductController {
     constructor(private readonly productService: ProductService) { }
 
@@ -32,12 +34,14 @@ export class ProductController {
         return this.productService.findOne(id);
     }
 
+    @Roles('operator')
     @Post()
     async create(@Body() dto: CreateProductDto) {
         const product = await this.productService.create(dto);
         return { success: true, data: product };
     }
 
+    @Roles('operator')
     @Patch(':id')
     async update(@Param('id') id: string, @Body() dto: UpdateProductDto) {
         const product = await this.productService.update(id, dto);
