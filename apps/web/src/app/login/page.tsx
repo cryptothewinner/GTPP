@@ -9,8 +9,8 @@ import { Input } from '@/components/ui/input';
 export default function LoginPage() {
     const router = useRouter();
     const { login } = useAuth();
-    const [email, setEmail] = useState('admin@sepenatural.com');
-    const [password, setPassword] = useState('Password123!');
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
     const [error, setError] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
 

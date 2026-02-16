@@ -1,13 +1,14 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
+import type { UserRole } from '@sepenatural/shared';
 import { apiClient } from '@/lib/api-client';
 
 interface User {
     id: string;
     email: string;
     fullName: string;
-    role: string;
+    role: UserRole;
 }
 
 interface AuthContextType {

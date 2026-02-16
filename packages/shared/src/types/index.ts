@@ -4,6 +4,8 @@ export * from './inventory';
 export * from './production';
 export * from './dashboard';
 
+import type { LegacyDbUserRole } from '../enums/user-role.enum';
+
 export interface ApiResponse<T = any> {
     success: boolean;
     data: T;
@@ -33,10 +35,8 @@ export interface AuthenticatedUser {
     id: string;
     email: string;
     fullName: string;
-    role: string;
+    role: LegacyDbUserRole;
 }
-
-export type UserRole = 'ADMIN' | 'MANAGER' | 'OPERATOR' | 'VIEWER';
 
 // Netsis / ERP Integration Types
 export interface NetsisStockItem {

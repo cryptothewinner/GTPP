@@ -29,11 +29,14 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { ROLE_PRIORITY, UserRole, normalizeUserRole } from '@sepenatural/shared';
+import { useAuth } from '@/providers/auth-provider';
 
 interface NavChild {
     label: string;
     href: string;
     icon: React.ReactNode;
+    minRole?: UserRole;
 }
 
 interface NavItem {
@@ -41,6 +44,14 @@ interface NavItem {
     href?: string;
     icon: React.ReactNode;
     children?: NavChild[];
+    minRole?: UserRole;
+}
+
+interface QuickCta {
+    label: string;
+    href: string;
+    icon: React.ReactNode;
+    minRole?: UserRole;
 }
 
 const navItems: NavItem[] = [
@@ -56,7 +67,7 @@ const navItems: NavItem[] = [
             { label: 'Üretim Planlama', href: '/production/planning', icon: <Factory className="w-4 h-4" /> },
             { label: 'Reçeteler', href: '/production/recipes', icon: <BookOpen className="w-4 h-4" /> },
             { label: 'Partiler', href: '/production/batches', icon: <FlaskConical className="w-4 h-4" /> },
-            { label: 'Tanımlamalar', href: '/production/definitions', icon: <Settings className="w-4 h-4" /> },
+            { label: 'Tanımlamalar', href: '/production/definitions', icon: <Settings className="w-4 h-4" />, minRole: UserRole.PRODUCTION_MANAGER },
         ],
     },
     {
@@ -81,6 +92,7 @@ const navItems: NavItem[] = [
     {
         label: 'Satınalma',
         icon: <Truck className="w-4 h-4" />,
+        minRole: UserRole.OPERATOR,
         children: [
             { label: 'Tedarikçiler', href: '/purchasing/suppliers', icon: <Users className="w-4 h-4" /> },
             { label: 'Satınalma Talepleri', href: '/purchasing/requisitions', icon: <ClipboardList className="w-4 h-4" /> },
@@ -101,6 +113,7 @@ const navItems: NavItem[] = [
     {
         label: 'Satışlar',
         icon: <BarChart3 className="w-4 h-4" />,
+        minRole: UserRole.OPERATOR,
         children: [
             { label: 'Satış Teklifleri', href: '/sales/quotations', icon: <BarChart3 className="w-4 h-4" /> },
             { label: 'Satış Siparişleri', href: '/sales/orders', icon: <ShoppingBag className="w-4 h-4" /> },
@@ -118,8 +131,24 @@ const navItems: NavItem[] = [
 export function LightningShell({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
     const router = useRouter();
+    const { user } = useAuth();
     const [openDropdown, setOpenDropdown] = useState<string | null>(null);
     const navRef = useRef<HTMLElement>(null);
+    const currentRole = normalizeUserRole(user?.role);
+
+    const canAccess = useCallback((minRole?: UserRole) => {
+        if (!minRole) return true;
+        if (!currentRole) return false;
+        return ROLE_PRIORITY[currentRole] >= ROLE_PRIORITY[minRole];
+    }, [currentRole]);
+
+    const filteredNavItems = navItems
+        .filter((item) => canAccess(item.minRole))
+        .map((item) => ({
+            ...item,
+            children: item.children?.filter((child) => canAccess(child.minRole)),
+        }))
+        .filter((item) => !item.children || item.children.length > 0);
 
     // Close dropdown when clicking outside
     useEffect(() => {
@@ -157,12 +186,12 @@ export function LightningShell({ children }: { children: React.ReactNode }) {
         }
     };
 
-    const contextualCtas = pathname === '/sales'
+    const contextualCtas = ((pathname === '/sales'
         ? [
-            { label: 'Satış Tekliflerine Git', href: '/sales/quotations', icon: <BarChart3 className="w-4 h-4" /> },
-            { label: 'Satış Siparişlerine Git', href: '/sales/orders', icon: <ShoppingBag className="w-4 h-4" /> },
-            { label: 'Teslimatları Aç', href: '/sales/deliveries', icon: <Truck className="w-4 h-4" /> },
-            { label: 'Faturaları Aç', href: '/sales/invoices', icon: <FileText className="w-4 h-4" /> },
+            { label: 'Satış Tekliflerine Git', href: '/sales/quotations', icon: <BarChart3 className="w-4 h-4" />, minRole: UserRole.OPERATOR },
+            { label: 'Satış Siparişlerine Git', href: '/sales/orders', icon: <ShoppingBag className="w-4 h-4" />, minRole: UserRole.OPERATOR },
+            { label: 'Teslimatları Aç', href: '/sales/deliveries', icon: <Truck className="w-4 h-4" />, minRole: UserRole.OPERATOR },
+            { label: 'Faturaları Aç', href: '/sales/invoices', icon: <FileText className="w-4 h-4" />, minRole: UserRole.OPERATOR },
         ]
         : pathname === '/materials/products'
             ? [
@@ -170,7 +199,7 @@ export function LightningShell({ children }: { children: React.ReactNode }) {
                 { label: 'Ürün Stoklarını Aç', href: '/inventory/products', icon: <Package className="w-4 h-4" /> },
                 { label: 'Partileri Gör', href: '/materials/batches', icon: <FlaskConical className="w-4 h-4" /> },
             ]
-            : [];
+            : []) as QuickCta[]).filter((cta) => canAccess(cta.minRole));
 
     return (
         <div className="flex flex-col min-h-screen bg-lightning-gray">
@@ -219,7 +248,7 @@ export function LightningShell({ children }: { children: React.ReactNode }) {
                     <Button variant="ghost" size="icon" className="md:hidden text-slate-600">
                         <Menu className="w-5 h-5" />
                     </Button>
-                    {navItems.map((item) => {
+                    {filteredNavItems.map((item) => {
                         const isActive = isItemActive(item);
                         const hasChildren = !!item.children;
                         const isOpen = openDropdown === item.label;
@@ -266,7 +295,7 @@ export function LightningShell({ children }: { children: React.ReactNode }) {
                 </div>
 
                 {/* Dropdown Panels */}
-                {navItems.map((item) => {
+                {filteredNavItems.map((item) => {
                     if (!item.children || openDropdown !== item.label) return null;
                     return (
                         <div

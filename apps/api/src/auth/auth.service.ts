@@ -2,11 +2,12 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
+import { normalizeUserRole, type UserRole } from '@sepenatural/shared';
 
 export interface JwtPayload {
     sub: string;
     email: string;
-    role: string;
+    role: UserRole;
     fullName: string;
 }
 
@@ -43,11 +44,16 @@ export class AuthService {
 
     async login(email: string, password: string) {
         const user = await this.validateUser(email, password);
+        const normalizedRole = normalizeUserRole(user.role);
+
+        if (!normalizedRole) {
+            throw new UnauthorizedException('Kullanıcı rolü doğrulanamadı');
+        }
 
         const payload: JwtPayload = {
             sub: user.id,
             email: user.email,
-            role: user.role,
+            role: normalizedRole,
             fullName: user.fullName,
         };
 
@@ -57,7 +63,7 @@ export class AuthService {
                 id: user.id,
                 email: user.email,
                 fullName: user.fullName,
-                role: user.role,
+                role: normalizedRole,
             },
         };
     }

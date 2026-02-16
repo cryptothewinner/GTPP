@@ -4,41 +4,20 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { LightningShell } from '@/components/layout/lightning-shell';
 import { useAuth } from '@/providers/auth-provider';
+import { ROLE_PRIORITY, UserRole, normalizeUserRole } from '@sepenatural/shared';
 
-const ROLE_PRIORITY: Record<string, number> = {
-    viewer: 10,
-    operator: 20,
-    warehouse_operator: 20,
-    quality_manager: 30,
-    production_manager: 30,
-    admin: 40,
-    super_admin: 50,
-};
-
-const ROUTE_ROLE_REQUIREMENTS: Array<{ prefix: string; minRole: keyof typeof ROLE_PRIORITY }> = [
-    { prefix: '/finance', minRole: 'admin' },
-    { prefix: '/sales', minRole: 'operator' },
-    { prefix: '/purchasing', minRole: 'operator' },
-    { prefix: '/production/planning', minRole: 'production_manager' },
-    { prefix: '/production/plans', minRole: 'production_manager' },
-    { prefix: '/production/definitions', minRole: 'production_manager' },
+const ROUTE_ROLE_REQUIREMENTS: Array<{ prefix: string; minRole: UserRole }> = [
+    { prefix: '/finance', minRole: UserRole.ADMIN },
+    { prefix: '/sales', minRole: UserRole.OPERATOR },
+    { prefix: '/purchasing', minRole: UserRole.OPERATOR },
+    { prefix: '/production/planning', minRole: UserRole.PRODUCTION_MANAGER },
+    { prefix: '/production/plans', minRole: UserRole.PRODUCTION_MANAGER },
+    { prefix: '/production/definitions', minRole: UserRole.PRODUCTION_MANAGER },
 ];
 
-function normalizeRole(role: string | undefined): keyof typeof ROLE_PRIORITY | null {
-    if (!role) return null;
-
-    const normalized = role.toLowerCase();
-    if (normalized in ROLE_PRIORITY) {
-        return normalized as keyof typeof ROLE_PRIORITY;
-    }
-
-    if (normalized === 'manager') return 'production_manager';
-    return null;
-}
-
-function getRequiredRole(pathname: string): keyof typeof ROLE_PRIORITY {
+function getRequiredRole(pathname: string): UserRole {
     const matched = ROUTE_ROLE_REQUIREMENTS.find((rule) => pathname.startsWith(rule.prefix));
-    return matched?.minRole ?? 'viewer';
+    return matched?.minRole ?? UserRole.VIEWER;
 }
 
 export function ShellGate({ children }: { children: React.ReactNode }) {
@@ -74,7 +53,7 @@ export function ShellGate({ children }: { children: React.ReactNode }) {
         );
     }
 
-    const currentRole = normalizeRole(user?.role);
+    const currentRole = normalizeUserRole(user?.role);
     const requiredRole = getRequiredRole(pathname);
 
     if (!currentRole || ROLE_PRIORITY[currentRole] < ROLE_PRIORITY[requiredRole]) {
