@@ -9,8 +9,10 @@ import {
     HttpStatus,
 } from '@nestjs/common';
 import { ServiceLogService, ServiceLogQueryDto } from './service-log.service';
+import { Roles } from '../../common/guards/roles.guard';
 
 @Controller('monitoring')
+@Roles('admin')
 export class MonitoringController {
     constructor(private readonly serviceLogService: ServiceLogService) {}
 

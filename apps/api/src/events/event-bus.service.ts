@@ -46,7 +46,7 @@ export class EventBusService {
                         aggregateType: eventType.split('.')[0] || 'unknown',
                         aggregateId: (payload.recordId as string) || (payload.id as string) || 'unknown',
                         payload: payload as any,
-                        status: 'pending',
+                        status: 'PENDING',
                     },
                 });
             } catch (error) {

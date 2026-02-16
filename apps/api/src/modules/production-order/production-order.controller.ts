@@ -3,8 +3,10 @@ import { ProductionOrderService } from './production-order.service';
 import { CreateProductionOrderDto } from './dto/create-production-order.dto';
 import { UpdateProductionOrderDto } from './dto/update-production-order.dto';
 import { ConfirmOperationDto } from './dto/confirm-operation.dto';
+import { Roles } from '../../common/guards/roles.guard';
 
 @Controller('production-orders')
+@Roles('viewer')
 export class ProductionOrderController {
     constructor(private readonly productionOrderService: ProductionOrderService) { }
 
@@ -34,24 +36,28 @@ export class ProductionOrderController {
     }
 
     @Post()
+    @Roles('operator', 'admin')
     async create(@Body() dto: CreateProductionOrderDto) {
         const order = await this.productionOrderService.create(dto);
         return { success: true, data: order };
     }
 
     @Patch(':id')
+    @Roles('operator', 'admin')
     async update(@Param('id') id: string, @Body() dto: UpdateProductionOrderDto) {
         const order = await this.productionOrderService.update(id, dto);
         return { success: true, data: order };
     }
 
     @Post(':id/start')
+    @Roles('operator', 'admin')
     async start(@Param('id') id: string) {
         const order = await this.productionOrderService.start(id);
         return { success: true, data: order };
     }
 
     @Post(':id/complete')
+    @Roles('operator', 'admin')
     async complete(@Param('id') id: string) {
         const order = await this.productionOrderService.complete(id);
         return { success: true, data: order };
@@ -62,6 +68,7 @@ export class ProductionOrderController {
     }
 
     @Patch(':id/reschedule')
+    @Roles('operator', 'admin')
     async reschedule(@Param('id') id: string, @Body() dto: UpdateProductionOrderDto) {
         if (!dto.plannedStart || !dto.plannedEnd) {
             throw new BadRequestException('Başlangıç ve bitiş tarihleri zorunludur.');
@@ -74,6 +81,7 @@ export class ProductionOrderController {
     }
 
     @Post(':id/operations/:opId/confirm')
+    @Roles('operator', 'admin')
     async confirmOperation(
         @Param('id') id: string,
         @Param('opId') opId: string,
