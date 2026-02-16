@@ -13,14 +13,41 @@ interface RequestOptions extends Omit<RequestInit, 'body'> {
 
 class ApiClient {
     private baseUrl: string;
+    private accessToken: string | null = null;
 
     constructor(baseUrl: string) {
         this.baseUrl = baseUrl;
+
+        if (typeof window !== 'undefined') {
+            this.accessToken = sessionStorage.getItem('auth_token');
+        }
+    }
+
+    private getToken(): string | null {
+        if (this.accessToken) return this.accessToken;
+        if (typeof window === 'undefined') return null;
+
+        this.accessToken = sessionStorage.getItem('auth_token');
+        return this.accessToken;
+    }
+
+    private setToken(token: string | null) {
+        this.accessToken = token;
+        if (typeof window === 'undefined') return;
+
+        if (token) {
+            sessionStorage.setItem('auth_token', token);
+            localStorage.removeItem('auth_token');
+            return;
+        }
+
+        sessionStorage.removeItem('auth_token');
+        localStorage.removeItem('auth_token');
     }
 
     private async request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
         const { body, headers, params, ...rest } = options;
-        const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+        const token = this.getToken();
 
         const startTime = performance.now();
         const method = rest.method || 'GET';
@@ -76,22 +103,20 @@ class ApiClient {
     }
 
     isAuthenticated(): boolean {
-        if (typeof window === 'undefined') return false;
-        return !!localStorage.getItem('auth_token');
+        return !!this.getToken();
     }
 
     logout() {
+        this.setToken(null);
         if (typeof window !== 'undefined') {
-            localStorage.removeItem('auth_token');
             window.location.href = '/login';
         }
     }
 
     async login(email: string, password: string) {
         const response = await this.post<any>('/auth/login', { email, password });
-        // The backend returns { accessToken: string, user: { ... } }
         if (response.accessToken) {
-            localStorage.setItem('auth_token', response.accessToken);
+            this.setToken(response.accessToken);
         }
         return response;
     }

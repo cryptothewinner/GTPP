@@ -1,52 +1,16 @@
 import { Injectable, CanActivate, ExecutionContext, SetMetadata } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { ROLE_PRIORITY, UserRole, normalizeUserRole } from '@sepenatural/shared';
 
 export const ROLES_KEY = 'roles';
 
-export type RbacRole =
-    | 'super_admin'
-    | 'admin'
-    | 'production_manager'
-    | 'quality_manager'
-    | 'warehouse_operator'
-    | 'operator'
-    | 'viewer';
+export type RbacRole = `${UserRole}`;
 
 /**
  * Decorator to set required roles on a route handler.
  * Usage: @Roles('admin', 'production_manager')
  */
 export const Roles = (...roles: RbacRole[]) => SetMetadata(ROLES_KEY, roles);
-
-const ROLE_PRIORITY: Record<RbacRole, number> = {
-    viewer: 10,
-    operator: 20,
-    warehouse_operator: 20,
-    quality_manager: 30,
-    production_manager: 30,
-    admin: 40,
-    super_admin: 50,
-};
-
-function normalizeRole(value: unknown): RbacRole | null {
-    if (typeof value !== 'string') {
-        return null;
-    }
-
-    const normalized = value.toLowerCase();
-
-    if (normalized in ROLE_PRIORITY) {
-        return normalized as RbacRole;
-    }
-
-    // Backward compatibility for Prisma role names.
-    if (normalized === 'manager') return 'production_manager';
-    if (normalized === 'viewer') return 'viewer';
-    if (normalized === 'operator') return 'operator';
-    if (normalized === 'admin') return 'admin';
-
-    return null;
-}
 
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -63,7 +27,7 @@ export class RolesGuard implements CanActivate {
         }
 
         const { user } = context.switchToHttp().getRequest();
-        const currentRole = normalizeRole(user?.role);
+        const currentRole = normalizeUserRole(user?.role);
 
         if (!currentRole) {
             return false;

@@ -4,6 +4,7 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import type { JwtPayload } from './auth.service';
+import { normalizeUserRole } from '@sepenatural/shared';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -27,10 +28,15 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
             throw new UnauthorizedException();
         }
 
+        const role = normalizeUserRole(user.role);
+        if (!role) {
+            throw new UnauthorizedException();
+        }
+
         return {
             id: user.id,
             email: user.email,
-            role: user.role,
+            role,
             fullName: user.fullName,
         };
     }

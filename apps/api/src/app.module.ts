@@ -24,6 +24,7 @@ import { HealthController } from './health.controller';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 
 import { PerformanceController } from './modules/performance/performance.controller';
 import { PerformanceMetricsService } from './modules/performance/performance-metrics.service';
@@ -34,6 +35,8 @@ import { OutboundDeliveryModule } from './modules/outbound-delivery/outbound-del
 import { BillingModule } from './modules/billing/billing.module';
 import { AccountingModule } from './modules/accounting/accounting.module';
 import { SupplierModule } from './modules/supplier/supplier.module';
+import { AuditModule } from './modules/audit/audit.module';
+import { AuditInterceptor } from './modules/audit/audit.interceptor';
 
 @Module({
     imports: [
@@ -69,6 +72,7 @@ import { SupplierModule } from './modules/supplier/supplier.module';
         BillingModule,
         AccountingModule,
         SupplierModule,
+        AuditModule,
     ],
     controllers: [HealthController, PerformanceController],
     providers: [
@@ -80,6 +84,10 @@ import { SupplierModule } from './modules/supplier/supplier.module';
         {
             provide: APP_GUARD,
             useClass: RolesGuard,
+        },
+        {
+            provide: APP_INTERCEPTOR,
+            useClass: AuditInterceptor,
         },
     ],
 })
