@@ -23,6 +23,7 @@ import { MonitoringModule } from './modules/monitoring/monitoring.module';
 import { HealthController } from './health.controller';
 import { APP_GUARD } from '@nestjs/core';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
+import { RolesGuard } from './common/guards/roles.guard';
 
 import { PerformanceController } from './modules/performance/performance.controller';
 import { PerformanceMetricsService } from './modules/performance/performance-metrics.service';
@@ -75,6 +76,10 @@ import { SupplierModule } from './modules/supplier/supplier.module';
         {
             provide: APP_GUARD,
             useClass: JwtAuthGuard,
+        },
+        {
+            provide: APP_GUARD,
+            useClass: RolesGuard,
         },
     ],
 })
